@@ -62,4 +62,15 @@ A 430-page university course PDF (Dr. Vikrant, .NET/C#/ASP.NET) was reviewed aga
 Two areas from that PDF were **deliberately left out** as full topics since they're superseded in a modern .NET stack and not worth deep new-build study time:
 - **ASP.NET Web Forms** (Page Life Cycle, `RequiredFieldValidator`/`CompareValidator`-style server controls) — fully replaced by MVC/Razor Pages/Blazor; skip entirely.
 - **WCF** (SOAP services, the ABC model, `gacutil`/shared-assembly hosting mechanics) — only kept as a one-line interview-recognition note under [[18-API-Design-Best-Practices]]; not a standalone deep-dive, since REST/gRPC/minimal APIs are the modern answer.
+
+A second source — a broader "Dotnet + Angular Interview Prep" PDF — was cross-checked the same way. Its Angular/RxJS, DSA, raw SQL/Database internals, and Azure-specific sections are **out of scope** for this repo (C#/.NET/ASP.NET Core only — no Angular or cloud-platform folders exist here). Everything else from it that was missing has been folded into the placeholders above:
+- Extension methods promoted from a LINQ footnote to its own explicit deep-dive (construction rules, compile-time resolution, extension vs default-interface-methods) under [[03-CSharp-Intermediate]]
+- LINQ interview-trap specifics (`Select` vs `SelectMany`, `Any()` vs `Count()`, `First`/`FirstOrDefault` vs `Single`/`SingleOrDefault`, `GroupBy`/`Join` translation differences, `ToList()` placement pitfalls) under [[03-CSharp-Intermediate]]
+- `IAsyncEnumerable<T>` and a fuller concurrent-collections lineup (`ConcurrentQueue`/`Stack`/`Bag`/`BlockingCollection`) under [[04-CSharp-Advanced]]
+- The constructor-order-across-inheritance "virtual call from a base constructor" trap under [[02-OOP-Fundamentals]]
+- Singleton eager-vs-lazy with full double-checked-locking/`volatile`/`Lazy<T>` reasoning under [[08-Design-Patterns]]
+- `IHostedService`/`BackgroundService` (previously missing entirely) under [[09-AspNetCore-Fundamentals]]
+- File upload handling (`IFormFile` streaming, safe filenames, chunked uploads) under [[11-AspNetCore-MVC-WebAPI]]
+- Webhook design (delivery guarantees, HMAC signature verification) under [[18-API-Design-Best-Practices]]
+- EF Core connection resiliency (`EnableRetryOnFailure`) and its required interaction with explicit transactions under [[13-EntityFramework-Core]]/08-Transactions-and-Concurrency
 # Claude-DotNet

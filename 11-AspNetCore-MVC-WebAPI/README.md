@@ -16,3 +16,4 @@ Status: **Not started**
 - State management across requests: `ViewBag`/`ViewData` (controller→view, single request), `TempData` (survives one redirect, `Keep()` to persist further), `Session` (server-side, per-user), cookies, query strings — when to use which (diagram comparing lifetimes)
 - Error handling: `UseExceptionHandler`, `ProblemDetails`, global exception middleware, custom error pages/status code pages
 - API versioning basics (expanded in [[18-API-Design-Best-Practices]])
+- File upload: `IFormFile` + `CopyToAsync` streaming to disk (why this matters — avoids buffering the whole file in memory, preventing `OutOfMemoryException` under concurrent large uploads); never trust a client-supplied filename for a server path (path traversal risk) — generate a random server-side filename, store the original as metadata only; `[RequestSizeLimit]`; large/chunked/resumable uploads for files too big for one request (tracking received chunk offsets, reassembly)
