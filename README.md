@@ -14,7 +14,7 @@ Goal: cover C# and the ASP.NET Core / .NET ecosystem in enough depth for a **5 Y
 | # | Topic | Status |
 |---|-------|--------|
 | 01 | [CSharp-Basics](01-CSharp-Basics/README.md) | ✅ Done |
-| 02 | [OOP-Fundamentals](02-OOP-Fundamentals/README.md) | Not started |
+| 02 | [OOP-Fundamentals](02-OOP-Fundamentals/README.md) | ✅ Done |
 | 03 | [CSharp-Intermediate](03-CSharp-Intermediate/README.md) | Not started |
 | 04 | [Async-Programming](04-Async-Programming/README.md) (deep dive — async/await internals, TPL scheduling, channels) | Not started |
 | 05 | [CSharp-Advanced](05-CSharp-Advanced/README.md) | Not started |

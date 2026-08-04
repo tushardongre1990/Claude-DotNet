@@ -27,3 +27,18 @@ When asked to explain something in more depth that's already covered in a topic 
 - Match the file's existing style: `###` subheadings for deeper dives, fenced ` ```csharp ` code blocks for examples, `> **New term — X.**` blockquotes for definitions (see section 3 of `01-CSharp-Basics/README.md` for the pattern: "Stack frames, concretely," "Copy semantics, concretely," "Generational GC, in more depth," etc.).
 - Only create a runnable code project/file when actually executing something adds proof (benchmarking, verifying output, measuring allocations) — plain fenced code blocks inline in the README are the default.
 - Always answer in chat too; the file edit is additive to the conversation, not a replacement for it.
+
+## Real-world examples
+Every concept explained in a topic README — and in chat, when walking through a concept — should be grounded in a **real-world example**, not just an abstract/toy one (`Foo`, `Point`, `Base`/`Derived`), paired with code and a diagram wherever relevant.
+
+- Prefer domain-flavored scenarios: banking/accounts, e-commerce/orders, employees/payroll, vehicles, payment processing, logging, file I/O, CRM/customer dedup, support tickets, etc. — something a reader can picture actually being built.
+- Applies retroactively: when revisiting a section that leans on a generic/abstract example, rework or supplement it with a concrete real-world scenario instead of leaving it purely abstract.
+- Still follow the readability rules above — a real-world example should clarify a concept, not bloat the section.
+
+See `02-OOP-Fundamentals/README.md` for the reference example of this treatment applied throughout.
+
+## Recording new preferences and decisions
+This file is checked into git, so anything written here survives a fresh clone on another machine. Claude's private session memory does not — it's local to whichever machine the session ran on, and is lost when switching machines.
+
+- When the user gives durable guidance about how to approach this repo (a style preference, a scope decision, a correction to prior work), add it here as a new bullet/section — not only to Claude's private memory — so it travels with `git push`/`git pull`.
+- Keep entries terse and rule-like, consistent with the rest of this file's voice. Point to a concrete file as a reference example where one exists, the way the sections above do.
