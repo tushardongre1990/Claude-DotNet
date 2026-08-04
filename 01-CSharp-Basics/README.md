@@ -95,6 +95,22 @@ flowchart TB
 
 > **New term — Reference (pointer).** A reference is simply an address — a number that says "the real data lives over there in memory." When a reference-type variable is declared, what's actually stored in that variable (whether on the stack, or inline inside another heap object) is this address, not the data itself. C# follows the address to read/modify the real data automatically whenever you use `.` to access a member — you never see the raw address.
 
+### Stack frames, concretely
+
+Each **thread** gets its own stack (~1MB by default in .NET). It's organized into **frames**, one per method currently in progress. Calling a method pushes a new frame containing its parameters and locals; returning pops the whole frame off in one shot — no per-variable cleanup needed, which is why it's essentially free:
+
+```
+Call OrderService.Process()
+┌───────────────────────────┐
+│ Process() frame            │  ← pushed on call, popped on return
+│  int total = 0             │
+│  Order order (reference) ──┼──┐
+└───────────────────────────┘  │
+        stack grows ↑           ▼
+                            Heap: Order { Id=7, Items=[...] }
+```
+`total` lives entirely inside the frame. `order` is also inside the frame, but it's just an address — the actual `Order` object it points to lives on the shared heap, outside any frame, until nothing references it.
+
 Now the core distinction:
 
 | | Value type | Reference type |
@@ -105,7 +121,50 @@ Now the core distinction:
 | Default `null`? | No (unless `Nullable<T>`/`T?`) | Yes |
 | Passed to methods | By value (a copy) by default | The reference itself is passed by value (so you can mutate the object's fields, but reassigning the parameter doesn't affect the caller's variable — unless you use `ref`) |
 
+### Copy semantics, concretely
+
+```csharp
+struct Point { public int X, Y; }
+
+Point p1 = new Point { X = 1, Y = 2 };
+Point p2 = p1;        // COPIES all fields into p2's own slot
+p2.X = 99;
+
+Console.WriteLine(p1.X); // 1 — p1 is untouched
+Console.WriteLine(p2.X); // 99
+```
+`p1` and `p2` are two entirely separate blobs of memory after that assignment — mutating one can never affect the other. Compare a reference type:
+
+```csharp
+class Order { public int Total; }
+
+Order o1 = new Order { Total = 100 };
+Order o2 = o1;         // COPIES the address, not the object
+o2.Total = 999;
+
+Console.WriteLine(o1.Total); // 999 — same object!
+```
+`new Order()` allocates the object once, on the heap. `o1` just holds a pointer to it. `o2 = o1` copies *that pointer* — now two variables point at the same object, so mutating through `o2` is visible through `o1`. This — not magic — is the root cause of the classic bug "I passed my object into a method and it changed my data": the method received the same address, not a copy.
+
 > **Correction to a common oversimplification:** "value types go on the stack, reference types go on the heap" is *approximately* true but not the real rule. The actual rule: **a value type is stored wherever it's declared.** A local variable that's a struct lives on the stack. A struct that is a *field of a class* lives inline inside that class's heap allocation. A struct captured in a closure or boxed lives on the heap too. Reference types are always heap-allocated, and their *reference* (pointer) lives wherever the variable is declared (stack, or inline in another heap object).
+
+### Where that nuance actually bites
+
+```csharp
+class Order
+{
+    public Point Location; // a struct FIELD
+}
+
+var order = new Order();                      // one heap allocation, for the Order
+order.Location = new Point { X = 1, Y = 2 };   // Point is baked INLINE into that same allocation
+```
+`Location` never gets its own separate heap allocation — its bytes sit directly inside `Order`'s memory, right alongside `Order`'s other fields. There's exactly **one** heap allocation for `order`, which is actually a performance win (no extra pointer to chase to reach `Location`).
+
+A struct gets pushed onto the heap on its own, separately from where it's declared, when it's:
+- **Boxed** — assigned to `object`, `dynamic`, or a non-generic interface (see Boxing/unboxing below).
+- **Captured by a lambda/closure** — the compiler generates a hidden class to hold captured variables, so anything captured (value or reference type) rides along inside that heap-allocated closure object.
+- An element of a `struct[]` array — arrays are always heap objects, but the structs inside are stored inline *inside* that one array allocation, not boxed individually.
 
 ### Boxing/unboxing
 
@@ -116,12 +175,40 @@ flowchart LR
     A["int i = 42 (stack)"] -->|"boxing: object o = i"| B["heap-allocated object\nwrapping the int"]
     B -->|"unboxing: int j = (int)o"| C["int j (stack, copied out)"]
 ```
-Boxing allocates on the heap and copies the value in; unboxing copies it back out. It's a hidden performance cost — this is why generic collections (`List<T>`) were introduced to replace non-generic ones (`ArrayList`), which boxed every value type stored in them.
+Boxing allocates on the heap and copies the value in; unboxing copies it back out. It's a hidden performance cost — this is why generic collections (`List<T>`) were introduced to replace non-generic ones (`ArrayList`), which boxed every value type stored in them:
+
+```csharp
+ArrayList list = new ArrayList(); // pre-generics, non-generic
+list.Add(5);            // 5 gets BOXED — a heap allocation just to store one int
+list.Add(10);            // another heap allocation
+
+List<int> genericList = new List<int>();
+genericList.Add(5);      // NO boxing — List<int> stores raw ints inline in an int[] internally
+```
+Put 10,000 ints in an `ArrayList` and you've made 10,000 heap allocations — 10,000 extra objects for the GC to eventually track and clean up, just to hold numbers. `List<int>` stores them as a contiguous `int[]`, so there's zero boxing.
 
 ### Stack vs Heap in one sentence
 Stack = fast, automatically reclaimed when a method returns, size-limited (`StackOverflowException` on deep recursion). Heap = flexible size, reclaimed by the **Garbage Collector** (not immediately when a reference goes out of scope — a key misconception to correct), slower to allocate/deallocate.
 
 > **How the GC actually works (brief):** periodically, the GC briefly pauses the program and walks from a set of known starting points ("roots" — local variables currently on the stack, static fields, etc.), following references to find every heap object still reachable. Anything *not* reachable is garbage, and its memory is reclaimed. This means an object is only freed at the *next* GC pass after it truly becomes unreachable — not the instant a variable goes out of scope. Unlike languages such as C/C++, you never manually free heap memory in C#.
+
+### Generational GC, in more depth
+
+.NET's GC is **generational** — it assumes most objects die young (a request-scoped DTO, a temporary string) and few live long (a cached singleton), so it splits the heap into generations instead of treating all objects equally:
+
+- **Gen 0** — newly allocated objects. Collected very frequently and very fast (often microseconds), since most Gen 0 objects are already garbage by the time a collection runs.
+- **Gen 1** — objects that survived one Gen 0 collection; a buffer between short-lived and long-lived.
+- **Gen 2** — long-lived objects (e.g. a static cache). Collected rarely, since a full Gen 2 sweep is the most expensive.
+
+Each collection starts from the **roots** (local variables on every thread's stack, static fields, CPU registers), walks every reference reachable from them, marks everything found as "alive," and reclaims anything unmarked *in that generation*. An object that survives a collection gets **promoted** to the next generation up.
+
+This is *why* allocating tons of short-lived objects in a hot loop ("allocation pressure") hurts throughput: it forces more frequent Gen 0 collections, and if some of those objects happen to still be reachable when a collection runs, they get promoted and end up clogging the more expensive Gen 1/2 collections too.
+
+### Why this model matters beyond trivia
+
+- **Async code**: value types captured by an `async` method get boxed into the compiler-generated heap object backing that method's state machine — part of why `async` methods carry an unavoidable small allocation cost per call (see [[04-Async-Programming]]).
+- **Multithreading**: because reference types share one object across every variable pointing at it, two threads holding the same reference are touching the *same* memory — the root cause of race conditions, and why `lock`/thread-safety matters for shared reference-type state but not for a `struct` each thread holds its own copy of.
+- **Performance-sensitive code**: `Span<T>`, `ref struct`, and `in` parameters (section 7) exist specifically to work with data without triggering extra heap allocations or copies — that only makes sense once this section's model is second nature.
 
 ---
 
