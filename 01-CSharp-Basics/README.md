@@ -229,6 +229,23 @@ genericList.Add(5);      // NO boxing — List<int> stores raw ints inline in an
 ```
 Put 10,000 ints in an `ArrayList` and you've made 10,000 heap allocations — 10,000 extra objects for the GC to eventually track and clean up, just to hold numbers. `List<int>` stores them as a contiguous `int[]`, so there's zero boxing.
 
+Boxing shows up in more places than an explicit `object` assignment. It happens implicitly, and invisibly, anywhere a value type is used through a non-generic interface:
+
+```csharp
+interface IShape { double Area(); }
+
+struct Circle : IShape // a struct implementing an interface
+{
+    public double Radius;
+    public double Area() => Math.PI * Radius * Radius;
+}
+
+IShape shape = new Circle { Radius = 2 }; // BOXED — Circle is a struct,
+                                            // but `shape` is typed as the interface,
+                                            // and interface-typed variables are reference types
+```
+Assigning a struct to a variable of its interface type boxes it. Calling `shape.Area()` runs on the *boxed copy* sitting on the heap, not on any original `Circle` variable you might still have lying around. This is a frequent source of "why didn't my struct's field change" bugs when a boxed struct gets mutated through an interface reference — the mutation lands on the throwaway box, not on the variable you expected.
+
 ### Stack vs Heap in one sentence
 Stack = fast, automatically reclaimed when a method returns, size-limited (`StackOverflowException` on deep recursion). Heap = flexible size, reclaimed by the **Garbage Collector** (not immediately when a reference goes out of scope — a key misconception to correct), slower to allocate/deallocate.
 
@@ -312,6 +329,84 @@ Foundational, but still worth spelling out precisely — this is where a lot of 
   - Null-conditional `?.` — `person?.Name` evaluates to `null` instead of throwing if `person` is `null`, short-circuiting the rest of the chain.
   - Null-coalescing `??` — `x ?? y` evaluates to `x` if it's not `null`, otherwise `y`.
   - Null-coalescing assignment `??=` — `x ??= y` assigns `y` to `x` only if `x` is currently `null`.
+
+### Null-conditional and null-coalescing operators, in depth
+
+> **New term — `NullReferenceException`.** This is the most common runtime crash in C#. It happens when you use the `.` operator on a variable that's currently `null` — there's no object there to look up a member on. `person.Name` throws this if `person` is `null`. Before `?.` existed, avoiding it meant writing `if (person != null) { ... }` checks everywhere by hand.
+
+```csharp
+Person? person = null;
+
+string name = person.Name;   // 💥 throws NullReferenceException
+string? name2 = person?.Name; // null — short-circuits instead of crashing
+```
+
+`?.` isn't limited to one level — it **chains**. If any link in the chain is `null`, the whole expression short-circuits to `null` immediately, and every `.` after that point is skipped without being evaluated:
+
+```csharp
+string? city = order?.Customer?.Address?.City;
+```
+
+```mermaid
+flowchart LR
+    A["order?.Customer"] -->|"order is null"| Z["result: null\n(stop — nothing after this runs)"]
+    A -->|"order is not null"| B[".Customer?.Address"]
+    B -->|"Customer is null"| Z
+    B -->|"Customer is not null"| C[".Address?.City"]
+    C -->|"Address is null"| Z
+    C -->|"Address is not null"| D["result: the City value"]
+```
+
+There's also a null-conditional **indexer**, `?[]`, for arrays and collections:
+
+```csharp
+int[]? numbers = null;
+int? first = numbers?[0]; // null instead of throwing IndexOutOfRange/NullReference
+```
+
+And a null-conditional form for invoking delegates safely — historically *the* standard pattern for raising events:
+
+```csharp
+// Old pattern: needed a null check first, and even that had a race condition
+if (SomethingHappened != null) SomethingHappened(this, EventArgs.Empty);
+
+// Modern pattern: ?. reads the delegate once and short-circuits if it's null
+SomethingHappened?.Invoke(this, EventArgs.Empty);
+```
+
+`??` (null-coalescing) supplies a fallback value when the left side is `null`:
+
+```csharp
+string? name = null;
+string displayName = name ?? "Anonymous"; // "Anonymous"
+
+string? name2 = "Alice";
+string displayName2 = name2 ?? "Anonymous"; // "Alice" — right side never evaluated
+```
+
+Like `&&`/`||` (section 5 above), `??` is **short-circuiting**: the right-hand side only runs if the left side actually turns out to be `null`. That matters when the right side is an expensive call — it won't pay that cost unnecessarily:
+
+```csharp
+string name = cachedName ?? GetDefaultName(); // GetDefaultName() only runs if cachedName is null
+```
+
+`?.` and `??` combine constantly in real code: chase a possibly-null chain with `?.`, then supply a fallback with `??` if any link along the way turned out to be `null`:
+
+```csharp
+string city = order?.Customer?.Address?.City ?? "Unknown";
+```
+
+`??=` (null-coalescing assignment, C# 8+) assigns only when the variable is currently `null` — shorthand for the common "initialize if not already set" pattern:
+
+```csharp
+List<string>? names = null;
+names ??= new List<string>(); // was null → now a new empty list
+names.Add("Alice");
+
+names ??= new List<string>(); // NOT null this time → this line does nothing
+```
+
+**Interview trap:** `?.` returns a *nullable* result even when the member itself is a non-nullable value type. `int? length = someString?.Length;` — `Length` is normally a plain `int`, but because the whole expression can short-circuit to `null`, the compiler widens the result type to `int?` automatically.
 - **`switch` statement vs `switch` expression** — a common "what's new in modern C#" interview question, expanded in [[06-CSharp-Modern-Features]]:
   - `switch` **statement** (classic, C-style): each `case` needs a `break`, or it falls through to the next one. Unlike C/Java, there's no *implicit* fall-through in C# — you must write `goto case` explicitly to opt into it.
   - `switch` **expression** (C# 8+): e.g. `x switch { 1 => "one", _ => "other" }`. It must cover every possible case (be *exhaustive*) or include a `_` discard as a default, and it *returns a value* directly instead of running statements.
@@ -396,6 +491,83 @@ flowchart TB
   - `ref` requires the caller's variable to already have a value.
   - `out` doesn't require an initial value, but the compiler *forces* you to assign it before the method returns. The classic use is `int.TryParse(s, out int result)`.
 - `in` (C# 7.2+) is about **performance**: passing a large `struct` by value copies the whole thing; `in` passes by reference but the compiler prevents mutation, giving you the copy-avoidance of `ref` without the "can this method change my variable" risk.
+
+### `ref`, `out`, `in` — concretely
+
+Recall from section 3: passing an `int` to a method normally passes a **copy**. The method gets its own separate variable, and changes inside it never reach the caller's variable. `ref`, `out`, and `in` all override that default by passing the caller's variable's **address** instead of a copy of its value — the parameter becomes an alias for the exact same storage location.
+
+```csharp
+void Increment(ref int x) { x++; }
+
+int a = 5;
+Increment(ref a);
+Console.WriteLine(a); // 6 — the SAME variable was modified, not a copy
+```
+
+```mermaid
+flowchart TB
+    subgraph Caller["Caller's stack frame"]
+        A["int a = 5\n(address: 0x100)"]
+    end
+    subgraph Callee["Increment(ref int x) frame"]
+        X["x → 0x100\n(alias, not a copy)"]
+    end
+    X -->|"x++ modifies the value AT 0x100"| A
+```
+
+`ref` requires the caller's variable to already hold a value before the call, since the method is free to read it before (optionally) changing it. Classic use: an in-place swap, something that isn't expressible with ordinary by-value parameters:
+
+```csharp
+void Swap(ref int x, ref int y)
+{
+    int temp = x;
+    x = y;
+    y = temp;
+}
+
+int a = 1, b = 2;
+Swap(ref a, ref b);
+Console.WriteLine($"{a}, {b}"); // 2, 1
+```
+
+`out` also passes an address, but the contract is different: the caller's variable does **not** need a value beforehand, and the compiler forces the method to assign it on every code path before returning. This is why `out` is the standard shape for "try this, tell me whether it worked, and give me the result":
+
+```csharp
+bool TryParseAge(string input, out int age)
+{
+    if (int.TryParse(input, out age) && age >= 0)
+        return true;
+
+    age = 0; // MUST assign on every path, even the failure path — won't compile otherwise
+    return false;
+}
+
+if (TryParseAge("42", out int result))
+    Console.WriteLine(result); // 42
+```
+`age` doesn't need a value before the call — declaring it inline at the call site (`out int age`) is legal, unlike `ref`, precisely because the method guarantees it'll be assigned.
+
+`in` (C# 7.2+) also passes an address, but for a different reason entirely: **performance**, not two-way communication. Passing a large `struct` by value copies every one of its fields on every call; `in` avoids that copy by passing the address instead, while the compiler enforces that the method can't modify the caller's data through it:
+
+```csharp
+readonly struct Vector3D { public readonly double X, Y, Z; }
+
+double Magnitude(in Vector3D v) // no 24-byte copy on every call
+{
+    // v.X = 1; // compile error — `in` parameters are read-only
+    return Math.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z);
+}
+```
+
+| | `ref` | `out` | `in` |
+|---|---|---|---|
+| Caller must initialize first? | Yes | No | Yes |
+| Method must assign before returning? | No | Yes (every path) | No — can't assign at all |
+| Can the method modify it? | Yes | Yes | No (read-only) |
+| Typical purpose | Two-way mutation (swap, in-place update) | "Try" pattern, multiple return values | Avoid copying a large struct |
+
+**Interview trap:** `ref`/`out`/`in` parameters can't be used inside `async` methods, iterator methods (`yield return`), or lambdas that capture them. All three rely on the compiler generating a state machine or a hidden closure class (section 3) — and a raw stack address can't safely be captured into a heap object that might outlive the stack frame it pointed into.
+
 - **Method overloading**: same method name, different parameter list — count, type, or order. It's resolved at **compile time**, based on the static type of the arguments. That's why overload resolution is unrelated to polymorphism/virtual dispatch, which is a runtime concept — see [[02-OOP-Fundamentals]].
 - **Optional parameters** (`void M(int x = 5)`) vs **named arguments** (`M(y: 10, x: 5)`). Optional parameter default values get baked into the *caller's* compiled IL at compile time. That causes a subtle versioning bug: if a library changes a default value, callers compiled against the old library keep using the old default until they're recompiled.
 
@@ -428,6 +600,58 @@ flowchart TB
 | `internal` | ✅ | ✅ | ❌ | ✅ | ❌ |
 | `protected internal` | ✅ | ✅ | ✅ | ✅ | ❌ |
 | `private protected` | ✅ | ✅ | ❌ | ❌ | ❌ |
+
+### Access modifiers, concretely
+
+> **New term — Encapsulation.** Access modifiers are how C# implements **encapsulation** — restricting which parts of a codebase are allowed to see or touch a given piece of data or code. The general rule of thumb: expose the smallest amount necessary. Start `private`, and only widen access when something outside genuinely needs it.
+
+```csharp
+public class BankAccount
+{
+    private decimal balance; // only THIS class can touch it directly
+
+    public decimal Balance => balance; // controlled read-only access for everyone else
+
+    public void Deposit(decimal amount) // controlled write access, with validation
+    {
+        if (amount <= 0) throw new ArgumentException("Must be positive");
+        balance += amount;
+    }
+}
+```
+Without `private` on `balance`, any other code could write `account.balance = -1000;` directly, skipping the validation inside `Deposit`. That's the entire point of encapsulation: force every mutation to go through code that can enforce the class's own rules.
+
+```mermaid
+flowchart TB
+    subgraph SameClass["Same class only"]
+        P["private member"] --> PD["visible only here"]
+    end
+    subgraph Derived["Declaring class + any subclass, any assembly"]
+        Pr["protected member"] --> PrD["visible here + in subclasses everywhere"]
+    end
+    subgraph SameAssembly["Anywhere in this assembly"]
+        I["internal member"] --> ID["visible in this .dll/.exe, invisible outside it"]
+    end
+```
+
+- `private` (the default for class members if you omit a modifier): visible only inside the declaring class itself. Not even a subclass can see it.
+- `protected`: visible inside the declaring class **and** any class that inherits from it, no matter which assembly that subclass lives in.
+- `internal`: visible anywhere inside the same assembly, but invisible to other assemblies/projects that merely reference it as a library. Useful for implementation details a **NuGet** package wants to share across its own classes without exposing them as public API.
+- `protected internal`: the **union** of `protected` and `internal` — visible if *either* condition holds (same assembly, OR a subclass even in a different assembly).
+- `private protected` (C# 7.2+): the **intersection** — visible only if *both* conditions hold (must be a subclass, AND in the same assembly). This is the one most often confused with `protected internal` in interviews — the names look almost identical, but the logic (union vs. intersection) is the opposite.
+
+```csharp
+public class Base
+{
+    private int a;             // only Base
+    protected int b;           // Base + any subclass, any assembly
+    internal int c;            // anywhere in this assembly
+    protected internal int d;  // subclass (any assembly) OR same assembly
+    private protected int e;   // subclass AND same assembly only
+}
+```
+
+**Interview trap:** class *members* default to `private` when you omit a modifier, but the `class` declaration itself defaults to `internal` when you omit one: `class Foo { }` is only visible inside its own assembly unless you explicitly write `public class Foo`.
 
 ---
 
