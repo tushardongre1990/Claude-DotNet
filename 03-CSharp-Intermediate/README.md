@@ -3,7 +3,9 @@
 Status: **Not started**
 
 ## Planned coverage
-- Collections: `Array`, `List<T>`, `Dictionary<K,V>`, `HashSet<T>`, `Queue`, `Stack`, `LinkedList`, `SortedList<K,V>` — internals & Big-O
+- Collections: `Array`, `List<T>`, `Dictionary<K,V>`, `HashSet<T>`, `Queue`, `Stack`, `LinkedList`, `SortedList<K,V>` — internals & Big-O (resize doubling strategy and its amortized-O(1) `Add`, hashing + collision resolution — bucket chaining and *why* a mutable object used as a dictionary key that changes its hash code after insertion silently breaks lookups)
+- `SortedDictionary<K,V>` / `SortedSet<T>` (self-balancing tree, O(log n) operations, always-enumerated-in-order) vs `SortedList<K,V>` (backed by two arrays, O(log n) lookup but O(n) insert/remove, lower memory overhead) — the classic "which sorted collection" tradeoff question
+- `System.Collections.Immutable` (`ImmutableList<T>`, `ImmutableDictionary<K,V>`, etc.) — structural sharing so a "mutation" returns a new collection reusing most of the old one's internal nodes rather than copying everything, vs `ReadOnlyCollection<T>` (just a non-mutable *view* over a still-mutable backing collection — a common point of confusion)
 - Non-generic legacy collections (`ArrayList`, `Hashtable`) vs generic collections — why generics replaced them (boxing avoidance, type safety)
 - Collection interfaces: `ICollection`, `IList`, `IDictionary`, `IEnumerable` — what each contract adds, and why you'd code against the interface instead of the concrete type
 - Generics: constraints (`where T : struct/class/new()/BaseClass/Interface`), covariance/contravariance (`in`/`out`), generic methods vs generic classes

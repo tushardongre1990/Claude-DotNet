@@ -9,4 +9,4 @@ Status: **Not started**
 - Readiness/liveness probes wired to ASP.NET Core health checks
 - Horizontal Pod Autoscaling basics
 - Configuration/secrets in K8s vs `appsettings.json`/Key Vault
-- Ingress controllers as the entry point (relation to API Gateway from [[20-Microservices-Architecture]])
+- Ingress controllers as the entry point (relation to API Gateway from [[21-Microservices-Architecture]])

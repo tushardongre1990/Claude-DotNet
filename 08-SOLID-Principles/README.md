@@ -9,4 +9,4 @@ Status: **Not started**
 - Interface Segregation Principle — fat interfaces problem
 - Dependency Inversion Principle — how this underpins DI containers in ASP.NET Core
 - How interviewers probe SOLID (red-flag code snippets to recognize)
-- Relationship between SOLID and [[08-Design-Patterns]] and [[19-Clean-Architecture-DDD-CQRS]]
+- Relationship between SOLID and [[09-Design-Patterns]] and [[20-Clean-Architecture-DDD-CQRS]]

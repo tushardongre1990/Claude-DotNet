@@ -133,7 +133,7 @@ Quick reference — these are assumed knowledge at senior level, so noted briefl
 
 - `var` is compile-time type inference, **not** dynamic typing (compare to `dynamic`, which defers type resolution to runtime and bypasses compile-time checks entirely).
 - Operators: arithmetic, relational, logical (`&&`/`||` short-circuit vs `&`/`|` which don't), null-conditional (`?.`), null-coalescing (`??`), null-coalescing assignment (`??=`).
-- `switch` **statement** (classic, fall-through requires explicit `goto case` — no implicit fall-through unlike C/Java) vs `switch` **expression** (C# 8+, must be exhaustive or has a `_` discard default, returns a value) — this distinction is a common "what's new in modern C#" interview question, expanded in [[05-CSharp-Modern-Features]].
+- `switch` **statement** (classic, fall-through requires explicit `goto case` — no implicit fall-through unlike C/Java) vs `switch` **expression** (C# 8+, must be exhaustive or has a `_` discard default, returns a value) — this distinction is a common "what's new in modern C#" interview question, expanded in [[06-CSharp-Modern-Features]].
 - Loops: `for`, `foreach` (sugar over `IEnumerable`/`GetEnumerator` — see [[03-CSharp-Intermediate]] for iterator internals), `while`, `do-while`.
 
 ---
@@ -226,7 +226,7 @@ flowchart LR
     C["int? y = 5;"] --> D["Nullable&lt;int&gt; struct\nHasValue = true, Value = 5"]
 ```
 
-- `int?` is really `System.Nullable<int>`, a struct with `HasValue` (bool) and `Value` (T) fields — it's still a value type overall (unlike Nullable *Reference* Types, which are a compile-time-only annotation feature added in C# 8, covered in [[05-CSharp-Modern-Features]]).
+- `int?` is really `System.Nullable<int>`, a struct with `HasValue` (bool) and `Value` (T) fields — it's still a value type overall (unlike Nullable *Reference* Types, which are a compile-time-only annotation feature added in C# 8, covered in [[06-CSharp-Modern-Features]]).
 - Accessing `.Value` when `HasValue` is `false` throws `InvalidOperationException` — always check `HasValue` or use `??` (`x ?? 0`) or pattern matching (`x is int val`).
 
 ---
@@ -257,7 +257,7 @@ flowchart TB
     E --> F["exception continues propagating\n(if unhandled, crashes the process)"]
 ```
 
-- `try` / `catch` / `finally`: `finally` always executes — whether an exception was thrown, caught, or the method returned normally — used for cleanup (though `using`/`IDisposable` is preferred for resource cleanup specifically, see [[04-CSharp-Advanced]]).
+- `try` / `catch` / `finally`: `finally` always executes — whether an exception was thrown, caught, or the method returned normally — used for cleanup (though `using`/`IDisposable` is preferred for resource cleanup specifically, see [[05-CSharp-Advanced]]).
 - Catch **most specific exception types first** — a base `catch (Exception ex)` placed before a derived one is unreachable code (and won't even compile in most cases, since the compiler detects order errors for sealed hierarchies... though with custom exceptions it can silently swallow more than intended).
 - **Custom exceptions**: derive from `Exception` (or a more specific base like `InvalidOperationException`), always provide the three standard constructors (parameterless, message, message+innerException) for consistency with BCL conventions.
 - `throw ex;` **resets the stack trace** to the current line — always use bare `throw;` inside a catch block to preserve the original stack trace when rethrowing. This is one of the most common senior-level code review flags.

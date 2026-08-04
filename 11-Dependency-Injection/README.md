@@ -10,4 +10,4 @@ Status: **Not started**
 - Constructor injection vs property/method injection
 - Registering with factories, keyed services (.NET 8+), `TryAdd*` methods
 - Third-party containers (Autofac, etc.) — when/why teams swap the built-in one
-- Testing implications: DI and mocking (ties into [[17-Testing]])
+- Testing implications: DI and mocking (ties into [[18-Testing]])

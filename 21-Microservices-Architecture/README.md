@@ -10,5 +10,5 @@ Status: **Not started**
 - Resilience: Polly — retry, circuit breaker, timeout, bulkhead policies (state diagram for circuit breaker: closed/open/half-open)
 - Distributed data management: database-per-service, the "no shared DB" rule, data consistency challenges
 - Saga pattern (choreography vs orchestration) for distributed transactions — ties into [[08-Transactions-and-Concurrency]]
-- Distributed tracing/correlation — ties into [[16-Logging-Monitoring]]
+- Distributed tracing/correlation — ties into [[17-Logging-Monitoring]]
 - .NET Aspire overview for orchestrating local microservice development
