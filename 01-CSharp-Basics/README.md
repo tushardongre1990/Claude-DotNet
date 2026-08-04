@@ -2,13 +2,18 @@
 
 Status: **In progress**
 
-> **How to read this file:** every abbreviation is spelled out in full the first time it's used. Blockquotes labeled **New term** explain foundational concepts (value types, reference types, boxing, the stack/heap, the garbage collector, etc.) from scratch, assuming no prior background — so you shouldn't need to look anything up elsewhere. The rest of the content (diagrams, tables, interview traps) is unchanged in purpose: it's still aimed at senior-level interview depth, just now self-contained.
+> **How to read this file:** every abbreviation is spelled out in full the first time it's used. Blockquotes labeled **New term** explain foundational concepts from scratch — value types, reference types, boxing, the stack/heap, the garbage collector, and more. You shouldn't need to look anything up elsewhere. Everything else (diagrams, tables, interview traps) still aims at senior-level interview depth — it's just self-contained now.
 
 ---
 
 ## 1. The .NET Landscape
 
-> **New term — .NET.** ".NET" is a *platform* for building software: a **runtime** that executes your compiled code, a **standard library** of reusable code (file access, networking, collections, etc. — so you don't write everything from scratch), and **compilers** (for C#, F#, VB.NET) that turn your source code into a form the runtime can run. ".NET Framework," ".NET Core," and ".NET 5+" below are different historical versions/branches of this same idea.
+> **New term — .NET.** ".NET" is a *platform* for building software. It bundles three things together:
+> - A **runtime** that executes your compiled code.
+> - A **standard library** of reusable code — file access, networking, collections, and more — so you don't write everything from scratch.
+> - **Compilers** (for C#, F#, VB.NET) that turn your source code into a form the runtime can run.
+>
+> ".NET Framework," ".NET Core," and ".NET 5+" below are different historical versions of this same idea.
 
 You need the history because interviewers use it to check you understand *why* things are the way they are today.
 
@@ -32,16 +37,28 @@ timeline
 | Open source | Partially | Yes | Yes | Yes |
 | Use today | Legacy WebForms/WCF apps | — | All new development | Mobile apps via .NET MAUI |
 
-*(Acronym key for the table/timeline above — these are just history/context, not things you need to use day-to-day: **WinForms** = Windows Forms and **WPF** = Windows Presentation Foundation, two older frameworks for building Windows desktop UIs; **WCF** = Windows Communication Foundation, an older framework for building network services, superseded today by REST-style **APIs** (Application Programming Interfaces — see [[19-API-Design-Best-Practices]]); **MAUI** = Multi-platform App UI, Microsoft's current cross-platform mobile/desktop UI framework.)*
+Acronym key for the table/timeline above — these are just history/context, not things you need to use day-to-day:
+- **WinForms** = Windows Forms, **WPF** = Windows Presentation Foundation — two older frameworks for building Windows desktop UIs.
+- **WCF** = Windows Communication Foundation, an older framework for building network services. It's superseded today by REST-style **APIs** (Application Programming Interfaces — see [[19-API-Design-Best-Practices]]).
+- **MAUI** = Multi-platform App UI, Microsoft's current cross-platform mobile/desktop UI framework.
 
-**Key interview point:** .NET Core wasn't "a faster .NET Framework" — it was a ground-up rewrite for cross-platform + modularity (**NuGet** packages instead of one giant BCL — NuGet is .NET's package manager, a way to download and reuse other developers' pre-built code libraries, similar to npm for JavaScript or pip for Python) + performance. .NET 5 renamed "Core" away once feature parity was reached, so "which .NET are you on" today just means the version number (8, 9, ...). .NET 8 is the current **LTS** (Long Term Support — Microsoft commits to 3 years of updates and bug fixes for these releases) release; pick it by default for production unless you specifically need a newer preview feature.
+**Key interview point:** .NET Core wasn't "a faster .NET Framework" — it was a ground-up rewrite. Three things drove that rewrite: cross-platform support, modularity, and performance. Modularity here means **NuGet** packages instead of one giant BCL — NuGet is .NET's package manager, a way to download and reuse other developers' pre-built code libraries, similar to npm for JavaScript or pip for Python.
 
-- **CLR** (Common Language Runtime) = the virtual machine that executes .NET code (**GC** — Garbage Collector, automatic memory cleanup, explained in section 3; **JIT** — Just-In-Time compiler, explained in section 2; type safety; exception handling).
+.NET 5 renamed "Core" away once feature parity was reached, so "which .NET are you on" today just means the version number (8, 9, ...). .NET 8 is the current **LTS** release — **LTS** (Long Term Support) means Microsoft commits to 3 years of updates and bug fixes. Pick .NET 8 by default for production unless you specifically need a newer preview feature.
 
-  > **New term — Virtual machine (in this context).** Not "a VM you'd spin up in the cloud" — here it means a software layer that sits between your compiled code and the real CPU, so the same compiled output can run unmodified on different physical machines/operating systems. The CLR reads your program's instructions (IL, see section 2) and executes them, managing memory and safety along the way, instead of your code talking to the hardware directly.
+- **CLR** (Common Language Runtime) = the virtual machine that executes .NET code. It's responsible for:
+  - **GC** (Garbage Collector) — automatic memory cleanup, explained in section 3.
+  - **JIT** (Just-In-Time compiler) — explained in section 2.
+  - Type safety and exception handling.
+
+  > **New term — Virtual machine (in this context).** Not "a VM you'd spin up in the cloud." Here it means a software layer that sits between your compiled code and the real CPU. That layer is what lets the same compiled output run unmodified on different physical machines and operating systems. The CLR reads your program's instructions (IL, see section 2) and executes them itself — managing memory and safety along the way — instead of your code talking to the hardware directly.
 
 - **BCL** (Base Class Library) = `System.*` — collections, file I/O, threading, etc. This is the "standard library" mentioned above: code Microsoft already wrote so you don't reinvent lists, file readers, etc.
-- **CLI** (Common Language Infrastructure — *not* to be confused with the far more common meaning of "CLI," Command Line Interface; this is an unrelated acronym for a language-interoperability standard) = the **ECMA** (Ecma International, a European standards organization) standard that defines **CIL** (Common Intermediate Language — the formal standards name for what's usually just called **IL**, Intermediate Language; same thing, two names depending on whether you're talking about the standard or the everyday tooling) / metadata format, so multiple languages (C#, F#, VB.NET) can interoperate — this is *why* a C# `List<T>` and an F# equivalent can call into each other seamlessly.
+- **CLI** (Common Language Infrastructure) is the **ECMA** (Ecma International, a European standards organization) standard that defines the CIL/metadata format so multiple languages — C#, F#, VB.NET — can interoperate. This is *why* a C# `List<T>` and an F# equivalent can call into each other seamlessly.
+
+  Don't confuse this CLI with the far more common meaning, Command Line Interface — they're unrelated acronyms that happen to collide.
+
+  **CIL** (Common Intermediate Language) is the formal standards name for what's usually just called **IL** (Intermediate Language). They're the same thing: CIL is the term used when talking about the standard itself, IL is the term used in everyday tooling.
 
 ---
 
@@ -59,10 +76,15 @@ flowchart LR
     D --> E["CPU executes"]
 ```
 
-- **Roslyn** is the modern open-source C# compiler. It only compiles to **IL** (Intermediate Language — a low-level, CPU-independent instruction set, not the actual machine code your processor runs), not machine code. This is why the same DLL runs on Windows/Linux/macOS/ARM/x64 — the IL is platform-agnostic. *(**ARM** and **x64** are examples of CPU **architectures** — families of processor designs with different native instruction sets; code compiled for one won't run on the other without translation, which is exactly what shipping IL instead of native code avoids needing.)*
-- **JIT** (Just-In-Time compilation) happens per-method, the first time a method is called, translating that method's IL into real native machine code for the CPU you're actually running on — and the result is cached for the process's lifetime. This is why the *first* call to a method is often slower ("JIT warm-up") — relevant to cold-start discussions for serverless/Azure Functions.
-- **Tiered compilation** (default since .NET Core 3): Tier 0 JIT is quick-and-dirty for fast startup; if a method is called often (hot path), it gets recompiled by Tier 1 with full optimizations. This is a startup-time vs peak-throughput tradeoff made automatically.
-- **ReadyToRun (R2R)** and **Native AOT** are ways to skip/reduce JIT at startup by precompiling — R2R still ships IL as fallback + precompiled native code; **Native AOT** (Ahead-Of-Time compilation — compiling straight to native machine code before the program ever runs, instead of during execution like JIT) compiles fully ahead-of-time with no JIT and no IL at all (smaller, faster startup, but loses some reflection-heavy features). Native AOT is the modern answer to "why is my container's cold start slow?"
+- **Roslyn** is the modern open-source C# compiler. It converts your C# code into **IL** (Intermediate Language), not directly into machine code. IL is a low-level, CPU-independent instruction set — not the actual machine code your processor runs.
+
+  This is why the same DLL runs on Windows/Linux/macOS/ARM/x64: the IL is platform-agnostic. **ARM** and **x64** are examples of CPU **architectures** — families of processor designs with different native instruction sets. Code compiled for one won't run on the other without translation, which is exactly what shipping IL instead of native code avoids needing.
+
+- **JIT** (Just-In-Time compilation) happens per method, the first time that method is called. It translates the method's IL into real native machine code for the CPU you're actually running on, and the result is cached for the process's lifetime. This is why the *first* call to a method is often slower — sometimes called "JIT warm-up" — which matters for cold-start discussions around serverless/Azure Functions.
+- **Tiered compilation** (default since .NET Core 3) balances startup time against peak throughput. Tier 0 JIT is quick-and-dirty, optimized for fast startup. If a method is called often (a "hot path"), it gets recompiled by Tier 1 with full optimizations. The tradeoff is made automatically.
+- **ReadyToRun (R2R)** and **Native AOT** both reduce startup time by compiling code before the application runs:
+  - **R2R** ships both precompiled native code and IL. If needed, the CLR can still fall back to JIT compilation.
+  - **Native AOT** (Ahead-Of-Time compilation) produces only native code — no IL, no JIT at runtime. That gives faster startup, but limits some reflection-heavy scenarios. Native AOT is the modern answer to "why is my container's cold start slow?"
 
 **Common interview question:** *"Is C# compiled or interpreted?"* — Neither, purely. It's a two-stage compiled language: compiled to IL ahead of time, then JIT-compiled to native code at runtime. That's different from Java only in branding — the JVM (Java Virtual Machine) does the same thing conceptually (bytecode + JIT).
 
@@ -72,11 +94,23 @@ flowchart LR
 
 This is the single most important mental model for the rest of C#. Get this wrong and async/mutability/performance questions all fall apart.
 
-> **New term — Variable and type.** A **variable** is a named storage location in memory that holds a value — e.g. `int x = 5;` creates a variable named `x` holding the value `5`. Every variable has a **type**, which tells the compiler two things: how much memory to reserve, and what operations are valid on it (you can add two `int`s, but not two `Person`s unless you define what "+" means for `Person`).
+> **New term — Variable and type.** A **variable** is a named storage location in memory that holds a value. For example, `int x = 5;` creates a variable named `x` holding the value `5`.
+>
+> Every variable has a **type**. The type tells the compiler two things: how much memory to reserve, and what operations are valid on that data. You can add two `int`s together, but not two `Person`s — unless you explicitly define what "+" means for `Person`.
 
-> **New term — Memory, stack, and heap.** When your program runs, the operating system gives it a chunk of memory (**RAM**, Random Access Memory) to work with. That memory is split into regions; the two relevant here:
-> - The **stack** is a small, fast region used for short-lived data tied to the method currently executing. It behaves like a physical stack of plates — **LIFO** (Last In, First Out): the most recently added item is the first one removed. When a method is called, its local variables get "pushed" onto the stack; when the method returns, they're automatically "popped" off. This is why stack allocation is essentially free.
-> - The **heap** is a larger, more flexible region for data that needs to outlive a single method call, or whose size isn't known until runtime. Allocating heap memory is slower than stack memory, and — unlike the stack — heap memory doesn't clean itself up when a method returns; see the **Garbage Collector** below.
+> **New term — Memory, stack, and heap.** When your program runs, the operating system gives it a chunk of memory — **RAM** (Random Access Memory) — to work with. That memory is split into regions. Two matter here: the stack and the heap.
+>
+> **The stack** has three defining characteristics:
+> - Small and fast.
+> - Behaves like a physical stack of plates — **LIFO** (Last In, First Out): the most recently added item is the first one removed.
+> - Cleans itself up automatically: when a method is called, its local variables are "pushed" on; when the method returns, they're "popped" off automatically.
+>
+> That automatic push/pop is why stack allocation is essentially free.
+>
+> **The heap** is different:
+> - Larger and more flexible — used for data that needs to outlive a single method call, or whose size isn't known until runtime.
+> - Slower to allocate than the stack.
+> - Doesn't clean itself up when a method returns — that's the **Garbage Collector**'s job (below).
 
 ```mermaid
 flowchart TB
@@ -93,7 +127,9 @@ flowchart TB
     S3 -->|"points to"| H1
 ```
 
-> **New term — Reference (pointer).** A reference is simply an address — a number that says "the real data lives over there in memory." When a reference-type variable is declared, what's actually stored in that variable (whether on the stack, or inline inside another heap object) is this address, not the data itself. C# follows the address to read/modify the real data automatically whenever you use `.` to access a member — you never see the raw address.
+> **New term — Reference (pointer).** A reference is simply an address — a number that says "the real data lives over there in memory." A reference-type variable stores this address, not the data itself. That's true whether the variable lives on the stack or inline inside another heap object.
+>
+> You never see the raw address in C#. Whenever you use `.` to access a member, C# follows the address to read or modify the real data automatically.
 
 ### Stack frames, concretely
 
@@ -122,6 +158,10 @@ Now the core distinction:
 | Passed to methods | By value (a copy) by default | The reference itself is passed by value (so you can mutate the object's fields, but reassigning the parameter doesn't affect the caller's variable — unless you use `ref`) |
 
 ### Copy semantics, concretely
+
+> **New term — struct.** `struct` is a C# keyword for defining your own **value type** — a small custom data type made of one or more fields bundled together. For example, `struct Point { public int X, Y; }` creates a type called `Point` that's just an `X` and a `Y` glued into one unit.
+>
+> A variable of a struct type directly *contains* its fields' data, rather than pointing to it elsewhere. That's exactly why assigning one struct variable to another copies the data instead of sharing a reference. Compare this to `class`, which defines a **reference type** (see the example below). Section 10 covers `struct` vs `class` in full.
 
 ```csharp
 struct Point { public int X, Y; }
@@ -168,7 +208,9 @@ A struct gets pushed onto the heap on its own, separately from where it's declar
 
 ### Boxing/unboxing
 
-> **New term — Boxing / unboxing.** C#'s type system treats everything as ultimately derived from `object` (see section 4) — but value types like `int` don't normally have the heap-object wrapper that reference types have. **Boxing** is the automatic process of wrapping a value type in a temporary heap object so it can be treated as an `object` (e.g. passed somewhere that expects `object`, or stored in an old, non-generic collection). **Unboxing** is reversing that: unwrapping it back into a plain value type. Both copy data and boxing performs a heap allocation, which is the hidden performance cost called out below.
+> **New term — Boxing / unboxing.** C#'s type system treats everything as ultimately derived from `object` (see section 4). But value types like `int` don't normally have the heap-object wrapper that reference types have.
+>
+> **Boxing** is the automatic process of wrapping a value type in a temporary heap object so it can be treated as an `object` — for example, when passed somewhere that expects `object`, or stored in an old, non-generic collection. **Unboxing** reverses that: it unwraps the value back into a plain value type. Both operations copy data, and boxing performs a heap allocation — that's the hidden performance cost called out below.
 
 ```mermaid
 flowchart LR
@@ -190,33 +232,37 @@ Put 10,000 ints in an `ArrayList` and you've made 10,000 heap allocations — 10
 ### Stack vs Heap in one sentence
 Stack = fast, automatically reclaimed when a method returns, size-limited (`StackOverflowException` on deep recursion). Heap = flexible size, reclaimed by the **Garbage Collector** (not immediately when a reference goes out of scope — a key misconception to correct), slower to allocate/deallocate.
 
-> **How the GC actually works (brief):** periodically, the GC briefly pauses the program and walks from a set of known starting points ("roots" — local variables currently on the stack, static fields, etc.), following references to find every heap object still reachable. Anything *not* reachable is garbage, and its memory is reclaimed. This means an object is only freed at the *next* GC pass after it truly becomes unreachable — not the instant a variable goes out of scope. Unlike languages such as C/C++, you never manually free heap memory in C#.
+> **How the GC actually works (brief):** periodically, the GC briefly pauses the program and looks for objects that are still reachable. It starts from a set of known starting points, called "roots" — local variables currently on the stack, static fields, and so on — then follows every reference outward from those roots. Anything it finds is marked as alive; anything it doesn't find is garbage, and its memory gets reclaimed.
+>
+> This means an object is only freed at the *next* GC pass after it truly becomes unreachable, not the instant a variable goes out of scope. Unlike languages such as C/C++, you never manually free heap memory in C#.
 
 ### Generational GC, in more depth
 
-.NET's GC is **generational** — it assumes most objects die young (a request-scoped DTO, a temporary string) and few live long (a cached singleton), so it splits the heap into generations instead of treating all objects equally:
+.NET's GC is **generational**. It assumes most objects die young — a request-scoped DTO, a temporary string — and only a few live long, like a cached singleton. Based on that assumption, it splits the heap into generations instead of treating all objects equally:
 
 - **Gen 0** — newly allocated objects. Collected very frequently and very fast (often microseconds), since most Gen 0 objects are already garbage by the time a collection runs.
 - **Gen 1** — objects that survived one Gen 0 collection; a buffer between short-lived and long-lived.
 - **Gen 2** — long-lived objects (e.g. a static cache). Collected rarely, since a full Gen 2 sweep is the most expensive.
 
-Each collection starts from the **roots** (local variables on every thread's stack, static fields, CPU registers), walks every reference reachable from them, marks everything found as "alive," and reclaims anything unmarked *in that generation*. An object that survives a collection gets **promoted** to the next generation up.
+Each collection starts from the **roots** — local variables on every thread's stack, static fields, CPU registers — and walks every reference reachable from them. Everything found gets marked "alive"; everything unmarked *in that generation* gets reclaimed. An object that survives a collection gets **promoted** to the next generation up.
 
-This is *why* allocating tons of short-lived objects in a hot loop ("allocation pressure") hurts throughput: it forces more frequent Gen 0 collections, and if some of those objects happen to still be reachable when a collection runs, they get promoted and end up clogging the more expensive Gen 1/2 collections too.
+This is *why* allocating tons of short-lived objects in a hot loop — called "allocation pressure" — hurts throughput. It forces more frequent Gen 0 collections. And if some of those objects happen to still be reachable when a collection runs, they get promoted, clogging the more expensive Gen 1/2 collections too.
 
 ### Why this model matters beyond trivia
 
-- **Async code**: value types captured by an `async` method get boxed into the compiler-generated heap object backing that method's state machine — part of why `async` methods carry an unavoidable small allocation cost per call (see [[04-Async-Programming]]).
-- **Multithreading**: because reference types share one object across every variable pointing at it, two threads holding the same reference are touching the *same* memory — the root cause of race conditions, and why `lock`/thread-safety matters for shared reference-type state but not for a `struct` each thread holds its own copy of.
+- **Async code**: value types captured by an `async` method get boxed into a compiler-generated heap object — the state machine backing that method. This is part of why `async` methods carry an unavoidable small allocation cost per call (see [[04-Async-Programming]]).
+- **Multithreading**: reference types share one object across every variable pointing at it. So two threads holding the same reference are touching the *same* memory — that's the root cause of race conditions. It's also why `lock`/thread-safety matters for shared reference-type state, but not for a `struct`, where each thread holds its own separate copy.
 - **Performance-sensitive code**: `Span<T>`, `ref struct`, and `in` parameters (section 7) exist specifically to work with data without triggering extra heap allocations or copies — that only makes sense once this section's model is second nature.
 
 ---
 
 ## 4. Primitive Types
 
-> **New term — Bits and bytes.** A **bit** is the smallest unit of memory, holding a `0` or `1`. A **byte** is 8 bits. Numeric types mainly differ in how many bytes they use, which determines the range of values they can hold — e.g. `byte` (1 byte / 8 bits) holds 0–255; `int` (4 bytes / 32 bits) holds roughly ±2.1 billion. More bytes = bigger range but more memory used per value.
+> **New term — Bits and bytes.** A **bit** is the smallest unit of memory, holding a `0` or `1`. A **byte** is 8 bits.
+>
+> Numeric types mainly differ in how many bytes they use. More bytes means a bigger range of values, but more memory used per value. For example: `byte` (1 byte / 8 bits) holds 0–255, while `int` (4 bytes / 32 bits) holds roughly ±2.1 billion.
 
-> **New term — Signed vs unsigned.** "Signed" types (`sbyte`, `short`, `int`, `long`) can represent negative numbers, spending part of their bit range on the sign. "Unsigned" types (`byte`, `ushort`, `uint`, `ulong` — the `u` prefix means unsigned) can only represent zero and positive numbers, but get roughly double the positive range in exchange since no bits are spent on sign.
+> **New term — Signed vs unsigned.** "Signed" types (`sbyte`, `short`, `int`, `long`) can represent negative numbers — they spend part of their bit range on the sign. "Unsigned" types (`byte`, `ushort`, `uint`, `ulong` — the `u` prefix means unsigned) can only represent zero and positive numbers. In exchange, they get roughly double the positive range, since no bits are spent on the sign.
 
 | Category | Types | Notes |
 |---|---|---|
@@ -228,9 +274,11 @@ This is *why* allocating tons of short-lived objects in a hot loop ("allocation 
 | Text | `string` | Reference type, **immutable** (see section 6), UTF-16 internally. |
 | Object root | `object` | Every type (value or reference) derives from `System.Object`. |
 
-> **New term — Unicode / character encoding.** Computers only store numbers, so representing text requires a system for mapping numbers to characters. **Unicode** is a standard that assigns a unique number (a **code point**) to essentially every character in every writing system. **UTF-16** is one way of encoding those numbers into actual bytes in memory, using 2-byte units — most common characters fit in one unit, but some (emoji, rare scripts) need two units combined (a "surrogate pair").
+> **New term — Unicode / character encoding.** Computers only store numbers, so representing text requires a system for mapping numbers to characters. **Unicode** is a standard that assigns a unique number — a **code point** — to essentially every character in every writing system.
+>
+> **UTF-16** is one way of encoding those numbers into actual bytes in memory, using 2-byte units. Most common characters fit in one unit. Some — emoji, rare scripts — need two units combined, called a "surrogate pair."
 
-> Floating point numbers **approximate** real numbers using a binary fraction — similar to how `1/3` can't be written exactly in decimal, some ordinary decimal fractions like `0.1` can't be represented exactly in binary either, causing tiny rounding errors. That's why `float`/`double` are wrong for money and `decimal` (which uses base-10 internally) is right.
+> Floating point numbers **approximate** real numbers using a binary fraction. Just as `1/3` can't be written exactly in decimal, some ordinary decimal fractions — like `0.1` — can't be represented exactly in binary either. That causes tiny rounding errors. It's why `float`/`double` are wrong for money, and `decimal` (which uses base-10 internally) is right.
 
 **Interview trap:** `int` is a value type but it's still "an object" in the sense that it derives from `object` — this only works because of implicit boxing when you call a method like `.ToString()` or `.Equals()` defined on `object`/overridden in the struct.
 
@@ -243,8 +291,8 @@ flowchart LR
     G["int.Parse(str)"] --> H["Throws FormatException/OverflowException on bad input"]
     I["int.TryParse(str, out x)"] --> J["Returns bool, no exception — preferred for untrusted input"]
 ```
-- **Implicit** conversions happen automatically because no information can be lost (a small type fits inside a bigger one); **explicit** conversions (casts) require you to write `(int)x` because information *could* be lost, forcing you to acknowledge that risk.
-- `Parse` throws on bad input; `TryParse` doesn't — always prefer `TryParse` for input you don't control (user input, external **APIs** — Application Programming Interfaces, i.e. other programs/services you send requests to and get responses from).
+- **Implicit** conversions happen automatically, because no information can be lost — a small type fits inside a bigger one. **Explicit** conversions (casts) require you to write `(int)x`, because information *could* be lost. Writing the cast forces you to acknowledge that risk.
+- `Parse` throws on bad input; `TryParse` doesn't. Always prefer `TryParse` for input you don't control — user input, or external **APIs** (Application Programming Interfaces — other programs/services you send requests to and get responses from).
 - `Convert.ToInt32(null)` returns `0` (doesn't throw) — a subtle difference from `int.Parse(null)` which throws `ArgumentNullException`. Interviewers sometimes probe this exact difference.
 
 ---
@@ -253,18 +301,23 @@ flowchart LR
 
 Foundational, but still worth spelling out precisely — this is where a lot of small jargon and gotchas live:
 
-- `var` lets the compiler infer a variable's type at compile time from what you assign to it — `var x = 5;` compiles to exactly the same thing as `int x = 5;`, just less typing. This is **compile-time type inference**, **not** dynamic typing: `x` is still permanently an `int`, and the compiler rejects `x = "hello";` afterward. Compare to `dynamic`, which defers all type-checking to runtime and bypasses the compiler's safety checks entirely (used for interoperating with non-.NET code, or heavy reflection scenarios).
+- `var` lets the compiler infer a variable's type at compile time from what you assign to it. `var x = 5;` compiles to exactly the same thing as `int x = 5;` — it's just less typing. This is **compile-time type inference**, **not** dynamic typing: `x` is still permanently an `int`, and the compiler rejects `x = "hello";` afterward.
+
+  Compare this to `dynamic`, which defers all type-checking to runtime and bypasses the compiler's safety checks entirely. It's mainly used for interoperating with non-.NET code, or heavy reflection scenarios.
+
 - **Operators** are symbols that perform an operation on values:
   - Arithmetic: `+ - * / %` (`%` is remainder/modulo, e.g. `7 % 3` is `1`).
   - Relational: `== != < > <= >=` — compare two values, produce a `bool`.
-  - Logical: `&&` / `||` (**short-circuiting** — `&&` stops evaluating as soon as one side is `false`, since the overall result is already determined; likewise `||` stops once one side is `true`) vs `&` / `|` (always evaluate both sides — rarely used on booleans, mostly seen doing bitwise math on integers).
+  - Logical: `&&` / `||` are **short-circuiting** — `&&` stops evaluating as soon as one side is `false`, since the overall result is already determined; `||` likewise stops once one side is `true`. `&` / `|` always evaluate both sides. They're rarely used on booleans, and mostly seen doing bitwise math on integers instead.
   - Null-conditional `?.` — `person?.Name` evaluates to `null` instead of throwing if `person` is `null`, short-circuiting the rest of the chain.
   - Null-coalescing `??` — `x ?? y` evaluates to `x` if it's not `null`, otherwise `y`.
   - Null-coalescing assignment `??=` — `x ??= y` assigns `y` to `x` only if `x` is currently `null`.
-- `switch` **statement** (classic C-style; each `case` needs a `break` or it falls through — unlike C/Java there's no *implicit* fall-through in C#, you must write `goto case` explicitly to opt into it) vs `switch` **expression** (C# 8+, e.g. `x switch { 1 => "one", _ => "other" }`; must cover every possible case — be *exhaustive* — or include a `_` discard as a default, and *returns a value* directly instead of running statements) — this distinction is a common "what's new in modern C#" interview question, expanded in [[06-CSharp-Modern-Features]].
+- **`switch` statement vs `switch` expression** — a common "what's new in modern C#" interview question, expanded in [[06-CSharp-Modern-Features]]:
+  - `switch` **statement** (classic, C-style): each `case` needs a `break`, or it falls through to the next one. Unlike C/Java, there's no *implicit* fall-through in C# — you must write `goto case` explicitly to opt into it.
+  - `switch` **expression** (C# 8+): e.g. `x switch { 1 => "one", _ => "other" }`. It must cover every possible case (be *exhaustive*) or include a `_` discard as a default, and it *returns a value* directly instead of running statements.
 - **Loops** repeat a block of code:
   - `for (int i = 0; i < 10; i++) { ... }` — repeats a fixed number of times, tracked with an explicit counter.
-  - `foreach (var item in collection) { ... }` — repeats once per element of a collection; sugar over calling `.GetEnumerator()` and pulling elements one at a time via `IEnumerable` (the BCL interface — in C#, interface names conventionally start with `I` — that anything "loopable" implements) — see [[03-CSharp-Intermediate]] for iterator internals.
+  - `foreach (var item in collection) { ... }` — repeats once per element of a collection. It's sugar over calling `.GetEnumerator()` and pulling elements one at a time via `IEnumerable`, the BCL interface that anything "loopable" implements. (In C#, interface names conventionally start with `I`.) See [[03-CSharp-Intermediate]] for iterator internals.
   - `while (condition) { ... }` — repeats as long as `condition` is `true`, checked *before* each iteration (may run zero times).
   - `do { ... } while (condition);` — same as `while`, but checked *after* each iteration (always runs at least once).
 
@@ -296,14 +349,26 @@ for (int i = 0; i < 10000; i++) sb.Append(i);
 string result = sb.ToString();
 ```
 
-> **New term — Big-O notation.** A shorthand for how an algorithm's cost (time or memory) grows as the input size (`n`) grows, ignoring constant factors. `O(n²)` ("quadratic") means cost grows roughly with the *square* of `n` — double the input, roughly quadruple the cost. The loop above is `O(n²)` because each of the `n` concatenations has to copy the entire string built so far (itself up to length `n`), for a total of roughly `n × n` character copies. `O(n)` ("linear," what `StringBuilder` achieves instead) means cost grows proportionally with `n` — double the input, roughly double the cost.
+> **New term — Big-O notation.** A shorthand for how an algorithm's cost — time or memory — grows as the input size (`n`) grows, ignoring constant factors.
+>
+> `O(n²)` ("quadratic") means cost grows roughly with the *square* of `n`: double the input, roughly quadruple the cost. The loop above is `O(n²)` because each of the `n` concatenations has to copy the entire string built so far — itself up to length `n` — for a total of roughly `n × n` character copies.
+>
+> `O(n)` ("linear," what `StringBuilder` achieves instead) means cost grows proportionally with `n`: double the input, roughly double the cost.
 
-**String interning:** string literals are cached in an intern pool, so `"abc" == "abc"` (two literals) actually reference the *same* heap object. Strings built at runtime (`new string(...)`, concatenation) are not interned by default — you can force it with `string.Intern(s)`. This is why `ReferenceEquals("abc","abc")` can be `true` for literals but `false` for two runtime-built equal strings, while `==`/`.Equals` are always `true` for equal content (string overloads `==` to do value comparison, unlike default reference-type behavior).
+**String interning:** string literals are cached in an intern pool, so `"abc" == "abc"` — two literals — actually reference the *same* heap object. Strings built at runtime (`new string(...)`, concatenation) aren't interned by default, though you can force it with `string.Intern(s)`.
+
+This is why `ReferenceEquals("abc","abc")` can be `true` for literals but `false` for two runtime-built equal strings. `==`/`.Equals`, by contrast, are always `true` for equal content — `string` overloads `==` to do value comparison, unlike the default reference-type behavior.
 
 ### Arrays
-- Fixed size once created, zero-indexed, stored **contiguously** on the heap (even though the *elements* might be value types stored inline, or references for reference-type elements — same rule as before). *(**Contiguous** means the elements sit one after another in one unbroken block of memory, rather than scattered around. This is what makes indexed access `arr[5]` extremely fast — the runtime just computes `start address + (index × element size)` instead of searching for it.)*
+- Arrays have a fixed size once created, are zero-indexed, and are stored **contiguously** on the heap. (The *elements* might still be value types stored inline, or references for reference-type elements — same rule as section 3.)
+
+  > **Contiguous** means the elements sit one after another in one unbroken block of memory, rather than scattered around. This is what makes indexed access `arr[5]` extremely fast — the runtime just computes `start address + (index × element size)` instead of searching for it.
+
 - `Array` implements `IEnumerable`, `ICollection` — supports `foreach`, `.Length`, `Array.Sort`, `Array.Copy`.
-- Multi-dimensional (`int[,]`) vs jagged (`int[][]`) — jagged is an array of arrays (each row can be a different length, and each row is its own separate heap allocation), multi-dimensional is one contiguous block. Jagged is generally faster for iteration due to better cache locality per-row and is more idiomatic in C#.
+- **Multi-dimensional** (`int[,]`) vs **jagged** (`int[][]`):
+  - Multi-dimensional is one contiguous block — every row is the same length.
+  - Jagged is an array of arrays — each row can be a different length, and each row is its own separate heap allocation.
+  - Jagged is generally faster to iterate, due to better cache locality per row, and is more idiomatic in C#.
 
 ```csharp
 int[,] grid = new int[3, 3];   // multi-dimensional: one block, all rows same length
@@ -327,10 +392,12 @@ flowchart TB
     E["void Method(params int[] xs)"] --> E1["caller can pass 0..N comma-separated args OR an array"]
 ```
 
-- `ref` vs `out`: both pass the variable's address, not a copy. `ref` requires the caller's variable to already have a value; `out` doesn't (and the compiler *forces* you to assign it before the method returns) — the classic use is `int.TryParse(s, out int result)`.
+- `ref` vs `out`: both pass the variable's address, not a copy.
+  - `ref` requires the caller's variable to already have a value.
+  - `out` doesn't require an initial value, but the compiler *forces* you to assign it before the method returns. The classic use is `int.TryParse(s, out int result)`.
 - `in` (C# 7.2+) is about **performance**: passing a large `struct` by value copies the whole thing; `in` passes by reference but the compiler prevents mutation, giving you the copy-avoidance of `ref` without the "can this method change my variable" risk.
-- **Method overloading**: same name, different parameter list (count/type/order) — resolved at **compile time** based on the static type of the arguments (this is why overload resolution is unrelated to polymorphism/virtual dispatch, which is a runtime concept — see [[02-OOP-Fundamentals]]).
-- **Optional parameters** (`void M(int x = 5)`) vs **named arguments** (`M(y: 10, x: 5)`) — optional parameter default values are baked into the *caller's* compiled IL at compile time, which causes a subtle versioning bug: if a library changes a default value, callers compiled against the old library keep using the old default until they're recompiled.
+- **Method overloading**: same method name, different parameter list — count, type, or order. It's resolved at **compile time**, based on the static type of the arguments. That's why overload resolution is unrelated to polymorphism/virtual dispatch, which is a runtime concept — see [[02-OOP-Fundamentals]].
+- **Optional parameters** (`void M(int x = 5)`) vs **named arguments** (`M(y: 10, x: 5)`). Optional parameter default values get baked into the *caller's* compiled IL at compile time. That causes a subtle versioning bug: if a library changes a default value, callers compiled against the old library keep using the old default until they're recompiled.
 
 ---
 
@@ -391,13 +458,15 @@ flowchart LR
 | Typical use | Small, immutable, short-lived data (e.g. `Point`, `DateTime`, `decimal`) | Everything else — entities, services, anything with identity or that needs inheritance |
 | Copy semantics | Copied entirely on assignment/pass | Reference copied; underlying object shared |
 
-Rule of thumb repeated in the official guidelines: make something a `struct` only if it's small (≲16 bytes as a rough guide), logically immutable, and represents a single value — otherwise, default to `class`. Getting this wrong (large mutable structs) causes defensive-copy bugs and performance problems, and is a favorite "what's wrong with this code" interview trap.
+The official guidelines give a clear rule of thumb: make something a `struct` only if it's small (≲16 bytes as a rough guide), logically immutable, and represents a single value. Otherwise, default to `class`. Getting this wrong — large, mutable structs — causes defensive-copy bugs and performance problems, and is a favorite "what's wrong with this code" interview trap.
 
 ---
 
 ## 11. Exception Handling Basics
 
-> **New term — Exception.** An exception is an object representing an error or unexpected condition, created ("thrown") at the point something goes wrong. Once thrown, normal execution stops immediately and control jumps upward through whichever methods are currently running — the **call stack**, the chain of "method A called method B called method C…" currently in progress — looking for a `catch` block willing to handle that type of exception. If none is found anywhere up the chain, the program crashes.
+> **New term — Exception.** An exception is an object representing an error or unexpected condition, created ("thrown") at the point something goes wrong. Once thrown, normal execution stops immediately.
+>
+> Control then jumps upward through whichever methods are currently running — the **call stack**, the chain of "method A called method B called method C…" currently in progress — looking for a `catch` block willing to handle that type of exception. If none is found anywhere up the chain, the program crashes.
 
 ```mermaid
 flowchart TB
@@ -410,10 +479,10 @@ flowchart TB
 ```
 
 - `try` / `catch` / `finally`: `finally` always executes — whether an exception was thrown, caught, or the method returned normally — used for cleanup (though `using`/`IDisposable` is preferred for resource cleanup specifically, see [[05-CSharp-Advanced]]).
-- Catch **most specific exception types first** — a base `catch (Exception ex)` placed before a derived one is unreachable code (and won't even compile in most cases, since the compiler detects order errors for sealed hierarchies... though with custom exceptions it can silently swallow more than intended).
+- Catch **most specific exception types first**. A base `catch (Exception ex)` placed before a derived one is unreachable code, and won't even compile in most cases, since the compiler detects order errors for sealed hierarchies. With custom exceptions, though, it can silently swallow more than intended.
 - **Custom exceptions**: derive from `Exception` (or a more specific base like `InvalidOperationException`), always provide the three standard constructors (parameterless, message, message+innerException) for consistency with BCL conventions.
 - `throw ex;` **resets the stack trace** to the current line — always use bare `throw;` inside a catch block to preserve the original stack trace when rethrowing. This is one of the most common senior-level code review flags.
-- Exceptions are for **exceptional/unexpected** conditions, not control flow — throwing/catching has real performance cost (**stack unwinding** — the runtime walking back up the call stack looking for a handler, running any `finally` blocks along the way — plus stack trace capture), and using exceptions for expected outcomes (e.g. validation failures) is an anti-pattern; prefer return values / Result-pattern / `TryX` methods for expected failure paths.
+- Exceptions are for **exceptional/unexpected** conditions, not control flow. Throwing and catching has a real performance cost: **stack unwinding** (the runtime walking back up the call stack looking for a handler, running any `finally` blocks along the way) plus stack trace capture. Using exceptions for expected outcomes — like validation failures — is an anti-pattern. Prefer return values, the Result pattern, or `TryX` methods for expected failure paths instead.
 
 ---
 
@@ -421,7 +490,7 @@ flowchart TB
 
 - **Q: Is C# pass-by-value or pass-by-reference?** — Always pass-by-value by default, including for reference types (the *reference itself* is copied). `ref`/`out`/`in` explicitly pass by reference.
 - **Q: Why is `string` immutable?** — Thread-safety (safe to share across threads without locks), enables interning/caching, and safe use as dictionary keys (hash code never changes).
-- **Q: What's the difference between `const` and `readonly`?** — `const` is a compile-time constant (value baked into IL at every call site, must be a primitive/string, implicitly static); `readonly` is a runtime constant (can be set in the constructor, can depend on runtime computation, avoids the versioning problem `const` has across assemblies).
+- **Q: What's the difference between `const` and `readonly`?** — `const` is a compile-time constant: its value gets baked into IL at every call site, it must be a primitive/string, and it's implicitly static. `readonly` is a runtime constant: it can be set in the constructor, can depend on runtime computation, and avoids the versioning problem `const` has across assemblies.
 - **Q: Stack overflow vs out of memory?** — `StackOverflowException` (uncatchable, crashes process) from deep/infinite recursion exceeding the fixed stack size; `OutOfMemoryException` from exhausting heap space, catchable but usually still fatal in practice.
 - **Q: When would you use a struct over a class?** — Small, immutable, frequently-allocated value semantics data where avoiding heap allocation/GC pressure matters (e.g. a `Point` used millions of times in a hot loop).
 

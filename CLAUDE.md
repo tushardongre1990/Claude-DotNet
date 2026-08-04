@@ -12,6 +12,15 @@ Write every topic `README.md` assuming the reader has **zero background** — no
 
 See `01-CSharp-Basics/README.md` for the reference example of this treatment already applied.
 
+### Readability (applies to all writing/editing in topic README files)
+Beginner-friendly must not mean bloated or textbook-dense. Apply these rules whenever writing or revising prose in a topic file:
+
+- **One idea per sentence.** Split any sentence carrying multiple clauses joined by em-dashes/semicolons into separate sentences.
+- **No nested parentheticals.** A parenthetical that itself needs a parenthetical (or runs longer than ~5-6 words) should become its own sentence instead, e.g. `CLI (Common Language Infrastructure) is the ECMA standard for X.` + a following sentence disambiguating it from the unrelated "Command Line Interface" meaning — not one sentence stacking both clarifications inside nested parens.
+- **Prefer bullets over dense paragraphs** whenever a paragraph is really "here are N characteristics/steps" — state that up front, then list them, then elaborate if needed. (See section 3's "The stack has three defining characteristics" treatment in `01-CSharp-Basics/README.md` for the pattern.)
+
+Goal: a senior dev can still skim it for depth, but a beginner isn't stalled parsing a 60-word sentence with three parenthetical asides.
+
 ## Handling follow-up / deep-dive questions
 When asked to explain something in more depth that's already covered in a topic `README.md`, fold the resulting explanation into that file at the relevant section — don't just leave it in chat:
 
