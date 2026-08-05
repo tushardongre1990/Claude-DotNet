@@ -58,6 +58,21 @@ The reader is going from **absolute beginner to advanced**, not just brushing up
 - A diagram (Mermaid) for each meaningfully distinct stage of difficulty where a diagram would clarify flow/relationships, not just one diagram for the whole concept.
 - Still follow the readability rules above and ground each example in a real-world scenario per the section above — "increasing difficulty" means more examples/diagrams, not longer sentences.
 
+## Chapter completion workflow (interview prep + exercises)
+This repo is used for active learning, not just writing notes, so retention is tracked per topic with a three-step loop:
+
+1. **"I've completed reading chapter N"** → generate interview questions covering that whole topic folder (e.g. `01-CSharp-Basics`), each with a model answer, and a set of hands-on exercises. Write all of it to a new `NN-Topic-Name/interview-prep.md` file (create the file; don't append to `README.md`). Post it in chat too, not just the file.
+   - Base questions on what the README actually covers section by section, including its "interview trap"/"common interview question" callouts — don't invent scope the file doesn't have.
+   - Order questions roughly by increasing difficulty, same as the README's own worked-examples convention.
+   - Exercises should be small runnable/write-out tasks (not multiple choice) that force applying the concept, not restating it.
+   - Additionally include, wherever the topic's content makes them applicable: a multiple-choice section and a "predict the output" section. Skip either section for a chapter if nothing in it actually lends itself to that format — don't force it.
+     - **MCQs**: 4 options, each as its own bullet line (`- A) ...`, not run together), correct answer + why each distractor is wrong.
+     - **Predict-the-output**: group by concept/topic (matching the README's own section breakdown), not scattered — within each concept's group, start with the simplest possible snippet and escalate through that concept's variations/edge cases (the same ones the README itself calls out) before moving to the next concept. Goal is full coverage of that concept's variations, not one example per concept.
+2. **User attempts the questions/exercises on their own** (outside this loop — no action from Claude here).
+3. **"I've done them"** → user pastes or describes their answers; Claude grades them: what's wrong, what's weak/incomplete, and what to add for long-term retention (e.g. a mnemonic, a connection to a prior topic, a common interview follow-up they should anticipate). Keep this critique in chat; only fold it back into `interview-prep.md` if the user asks.
+
+Why: passive re-reading of these notes wasn't sticking (see [[retention-workflow]] in private memory for the underlying motivation). Active recall + grading is the fix — don't shortcut back to just re-summarizing the README when asked to do this.
+
 ## Recording new preferences and decisions
 This file is checked into git, so anything written here survives a fresh clone on another machine. Claude's private session memory does not — it's local to whichever machine the session ran on, and is lost when switching machines.
 
