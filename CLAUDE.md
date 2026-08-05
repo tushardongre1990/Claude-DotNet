@@ -37,6 +37,18 @@ Every concept explained in a topic README — and in chat, when walking through 
 
 See `02-OOP-Fundamentals/README.md` for the reference example of this treatment applied throughout.
 
+## Explanation sequence per concept
+When introducing a concept (not just adding examples to one already covered), default to this progression rather than diagram-first or trap-first:
+
+1. One-sentence plain definition of the concept.
+2. Numbered/labeled subsections for each distinct case or variant, each with its own minimal real-world example and a short "usage" snippet showing the output.
+3. A diagram (Mermaid, not plain-text arrows) once the variants have been shown individually, to tie them together visually.
+4. A "Benefits" list — why the concept exists / what problem it solves.
+5. A "Rules" list — hard constraints the compiler enforces, stated precisely.
+6. A short interview-style quick-reference summary.
+
+See `02-OOP-Fundamentals/README.md` section 1's "Constructor Chaining" subsection for the reference example of this progression. Harder/edge-case examples (e.g. multi-level chaining) still belong per the "Depth of coverage" section below — add them as a "Going deeper" subsection *after* this core progression, not interleaved into it.
+
 ## Depth of coverage per concept
 The reader is going from **absolute beginner to advanced**, not just brushing up for an interview. Every concept/topic (e.g. constructor chaining, polymorphism, indexers) needs thorough treatment, not a single pass:
 

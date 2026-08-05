@@ -66,14 +66,66 @@ class Point
 
     public Point() { X = 0; Y = 0; }              // parameterless
     public Point(int x, int y) { X = x; Y = y; }   // parameterized
-    public Point(Point other) : this(other.X, other.Y) { }  // "copy constructor"
 }
 ```
+A constructor can also call *another* constructor instead of repeating its logic — that's constructor chaining, covered next.
 
-> **New term — Constructor chaining (`this(...)`).** `: this(...)` tells one constructor to run another constructor on the same class first, then continue with its own body. It avoids duplicating initialization logic across overloads.
+### Constructor Chaining
 
-**Copy constructor.** C# has no built-in copy-constructor language feature like C++ does. The pattern above — a constructor that takes an instance of the same type and copies its fields — is just a convention, written by hand. It's the standard way to produce an independent copy of an object:
+> **New term — Constructor chaining.** Constructor chaining is a technique where one constructor calls another constructor, either on the same class (`this(...)`) or on the base class (`base(...)`), instead of repeating the same initialization code. The called constructor always runs to completion first, then control returns to finish the calling constructor's own body.
 
+#### 1. Chaining constructors within the same class (`this`)
+
+Use `this(...)` to have one constructor call another constructor on the *same* class.
+
+**Real-world example:** an HR system's `Employee` class should let code create a placeholder record with no details yet, without duplicating the "set these fields" logic in two places:
+
+```csharp
+class Employee
+{
+    public string Name { get; set; }
+    public int Age { get; set; }
+
+    public Employee()
+        : this("Unknown", 0)   // calls the parameterized constructor below
+    {
+    }
+
+    public Employee(string name, int age)
+    {
+        Name = name;
+        Age = age;
+    }
+}
+```
+```csharp
+Employee emp1 = new Employee();
+Console.WriteLine(emp1.Name);   // "Unknown"
+
+Employee emp2 = new Employee("John", 25);
+Console.WriteLine(emp2.Name);   // "John"
+```
+
+```mermaid
+flowchart TB
+    A["new Employee()"] --> B["Employee()"]
+    B -->|"this(#quot;Unknown#quot;, 0)"| C["Employee(string, int)"]
+    C --> D["Name = #quot;Unknown#quot;, Age = 0"]
+```
+The `this(...)` arrow runs and finishes **before** `Employee()`'s own (empty) body continues — that ordering is the entire point of chaining.
+
+`Employee()` has no initialization logic of its own — it just hands off to `Employee(string, int)` with default values. If a third property were added later, there'd be exactly one constructor body to update, not two.
+
+**Copy constructor — a common `this(...)` pattern.** C# has no built-in copy-constructor language feature like C++ does. A constructor that takes an instance of the same type and copies its fields is just a hand-written convention, and it's often written using `this(...)` to reuse the "real" constructor's logic:
+
+```csharp
+class Point
+{
+    public int X, Y;
+    public Point(int x, int y) { X = x; Y = y; }
+    public Point(Point other) : this(other.X, other.Y) { }   // "copy constructor" — chains to the one above
+}
+```
 ```csharp
 var original = new Point(3, 4);
 var copy = new Point(original);   // copy.X == 3, copy.Y == 4, but a DIFFERENT object
@@ -81,9 +133,72 @@ copy.X = 99;
 // original.X is still 3 — copy has its own storage
 ```
 
-### Constructor chaining, step by step
+#### 2. Chaining to a base class constructor (`base`)
 
-The `Point` example above chains two levels (`Point(Point other)` → `Point(int, int)`). Chaining can go deeper than that — each constructor forwarding to the next one, in a line, before any of their own bodies run.
+Use `base(...)` to have a derived class's constructor call a constructor on its *parent* class.
+
+**Real-world example:** the same HR system needs an `Employee` that's specifically a `Person` — the person-level details (like `Name`) should be initialized by `Person`'s own constructor, not duplicated inside `Employee`:
+
+```csharp
+class Person
+{
+    public string Name { get; }
+
+    public Person(string name)
+    {
+        Name = name;
+    }
+}
+
+class Employee : Person
+{
+    public int EmployeeId { get; }
+
+    public Employee(string name, int employeeId)
+        : base(name)    // calls Person's constructor
+    {
+        EmployeeId = employeeId;
+    }
+}
+```
+```csharp
+Employee emp = new Employee("Alice", 101);
+Console.WriteLine(emp.Name);        // "Alice" — set by Person's constructor
+Console.WriteLine(emp.EmployeeId);  // 101     — set by Employee's own constructor
+```
+
+```mermaid
+flowchart TB
+    A["new Employee(#quot;Alice#quot;, 101)"] --> B["Employee(string, int) — Employee's OWN body"]
+    B -->|"base(#quot;Alice#quot;) — runs BEFORE Employee's body"| C["Person(string)"]
+    C --> D["Name = #quot;Alice#quot; (set by Person)"]
+    D --> E["control returns to Employee's body — EmployeeId = 101"]
+```
+The `base(...)` arrow runs and finishes **before** `Employee`'s own body continues — same ordering rule as the `this(...)` case above.
+
+`Employee` never assigns `Name` itself — it trusts `Person`'s constructor to do that correctly, the same way it trusts `Person` to declare the `Name` property in the first place.
+
+#### Benefits
+
+- Eliminates duplicate initialization code.
+- Makes constructors easier to maintain — one place to change, not several.
+- Ensures every constructor path produces a consistently-initialized object.
+- Improves readability — each constructor's job is visible from its signature alone.
+
+#### Rules
+
+- A constructor can chain to **only one** other constructor — either `this(...)` or `base(...)`, never both.
+- The `this(...)`/`base(...)` call must be the first thing in the constructor. It isn't actually a statement inside the `{ }` body — it's part of the constructor's own declaration, written right after the parameter list, before the body even opens. Nothing can run before it, because syntactically there's nowhere to put a statement in front of it.
+- You cannot use both `this(...)` and `base(...)` in the same constructor — chaining always means "run exactly one other constructor before mine."
+
+**Quick reference for interviews:**
+- **`this(...)`** → calls another constructor on the **same class**.
+- **`base(...)`** → calls a constructor in the **parent class**.
+- Write **neither**, and C# implicitly inserts a call to the parent's **parameterless** constructor for you — section 11 covers this implicit case in full, including what happens when the parent has no parameterless constructor to fall back on.
+
+#### Going deeper: chaining more than two levels
+
+The examples above each chain exactly two constructors. Chaining can go deeper — each constructor forwarding to the next one in a line, before any of their own bodies run.
 
 **Real-world example:** an e-commerce `Order` needs a customer ID at minimum, but callers should also be able to skip the timestamp (it defaults to "now") or skip everything and get a blank draft order:
 
@@ -94,9 +209,9 @@ class Order
     public DateTime PlacedOn;
     public string Status;
 
-    public Order() : this(0) { }                                  // level 1 — chains to level 2
-    public Order(int customerId) : this(customerId, DateTime.Now) { }  // level 2 — chains to level 3
-    public Order(int customerId, DateTime placedOn)                // level 3 — the ONLY body that does real work
+    public Order() : this(0) { }                                       // level 1 — chains to level 2
+    public Order(int customerId) : this(customerId, DateTime.Now) { }   // level 2 — chains to level 3
+    public Order(int customerId, DateTime placedOn)                     // level 3 — the ONLY body that does real work
     {
         CustomerId = customerId;
         PlacedOn = placedOn;
@@ -107,7 +222,7 @@ class Order
 var o = new Order();   // triggers all three constructors in a chain
 ```
 
-The key rule: when constructor A chains to constructor B with `: this(...)`, **B's entire body finishes running before A's own body starts.** With three levels chained in a line, that rule just applies twice in a row — the innermost constructor's body is always the first one to actually execute:
+The key rule from above just applies twice in a row here: when constructor A chains to constructor B, **B's entire body finishes running before A's own body starts.** With three levels chained in a line, the innermost constructor's body is always the first one to actually execute:
 
 ```mermaid
 sequenceDiagram
@@ -231,6 +346,45 @@ void Replace(Account acc) { acc = new Account(); }  // rebinds the LOCAL copy of
 Reset(a);   // a.Balance is now 0
 Replace(a); // a still points to the SAME object as before — untouched
 ```
+
+`Reset` and `Replace` each receive their own `acc` parameter, and both start out pointing at the exact same object `a` does. What each method *does* with that reference is where they diverge:
+
+```mermaid
+flowchart LR
+    subgraph Before["Before Reset(a)"]
+        a1["caller's variable a"] -->|"reference"| Obj1["heap object\nBalance = 100"]
+    end
+    subgraph Inside1["Inside Reset(Account acc)"]
+        a2["caller's variable a"] -->|"reference"| Obj2["SAME heap object\nBalance = 100"]
+        acc2["parameter acc\n(a COPY of the reference)"] -->|"points at the SAME object"| Obj2
+        acc2 -->|"acc.Balance = 0 — mutates THROUGH the reference"| Obj2
+    end
+    subgraph After1["After Reset(a) returns"]
+        a3["caller's variable a"] -->|"reference"| Obj3["SAME heap object\nBalance = 0"]
+    end
+    Before --> Inside1
+    Inside1 --> After1
+```
+`acc` is a *different variable* from `a`, but both hold the same address. `acc.Balance = 0` doesn't touch `acc` itself — it reaches through the reference into the one shared object, so `a` sees the change too the moment `Reset` returns.
+
+```mermaid
+flowchart LR
+    subgraph Before2["Before Replace(a)"]
+        b1["caller's variable a"] -->|"reference"| ObjA1["heap object #1\nBalance = 0"]
+    end
+    subgraph Inside2["Inside Replace(Account acc)"]
+        b2["caller's variable a"] -->|"reference — untouched"| ObjA2["heap object #1\nBalance = 0"]
+        acc3["parameter acc\n(a COPY of the reference)"] -.->|"acc = new Account()\nREBINDS only the LOCAL copy"| ObjB2["heap object #2\n(brand new, empty)"]
+    end
+    subgraph After2["After Replace(a) returns"]
+        b3["caller's variable a"] -->|"reference — SAME as before"| ObjA3["heap object #1\nBalance = 0"]
+    end
+    Before2 --> Inside2
+    Inside2 --> After2
+```
+`acc = new Account()` doesn't reach into the object at all — it just points the *local variable* `acc` at a brand-new object instead. `acc` was only ever a copy of `a`'s reference, so rebinding `acc` has no way to change what `a` itself points to. Once `Replace` returns, `acc` (and the new object it pointed to) is gone; `a` never moved.
+
+The rule underneath both diagrams: **method parameters of a reference type are passed by value** — the *value* being copied is the reference itself, not the object it points to (this is the exact same "copy semantics" mechanism as [[01-CSharp-Basics]] section 3, just applied to a reference instead of an `int`). Mutating *through* a copied reference is visible to everyone holding that reference. Reassigning the copy itself is not.
 
 ---
 
