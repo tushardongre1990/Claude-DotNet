@@ -81,6 +81,53 @@ copy.X = 99;
 // original.X is still 3 — copy has its own storage
 ```
 
+### Constructor chaining, step by step
+
+The `Point` example above chains two levels (`Point(Point other)` → `Point(int, int)`). Chaining can go deeper than that — each constructor forwarding to the next one, in a line, before any of their own bodies run.
+
+**Real-world example:** an e-commerce `Order` needs a customer ID at minimum, but callers should also be able to skip the timestamp (it defaults to "now") or skip everything and get a blank draft order:
+
+```csharp
+class Order
+{
+    public int CustomerId;
+    public DateTime PlacedOn;
+    public string Status;
+
+    public Order() : this(0) { }                                  // level 1 — chains to level 2
+    public Order(int customerId) : this(customerId, DateTime.Now) { }  // level 2 — chains to level 3
+    public Order(int customerId, DateTime placedOn)                // level 3 — the ONLY body that does real work
+    {
+        CustomerId = customerId;
+        PlacedOn = placedOn;
+        Status = "Pending";
+    }
+}
+
+var o = new Order();   // triggers all three constructors in a chain
+```
+
+The key rule: when constructor A chains to constructor B with `: this(...)`, **B's entire body finishes running before A's own body starts.** With three levels chained in a line, that rule just applies twice in a row — the innermost constructor's body is always the first one to actually execute:
+
+```mermaid
+sequenceDiagram
+    participant Caller as new Order()
+    participant L1 as Order() — level 1
+    participant L2 as Order(customerId) — level 2
+    participant L3 as Order(customerId, placedOn) — level 3
+    Caller->>L1: new Order()
+    L1->>L2: this(0) — must resolve BEFORE L1's own body
+    L2->>L3: this(0, DateTime.Now) — must resolve BEFORE L2's own body
+    L3->>L3: 1. L3's body runs FIRST — sets CustomerId, PlacedOn, Status
+    L3-->>L2: return
+    L2->>L2: 2. L2's own body runs (empty here)
+    L2-->>L1: return
+    L1->>L1: 3. L1's own body runs (empty here)
+    L1-->>Caller: fully-constructed Order
+```
+
+Only `Order(int, DateTime)` contains actual initialization logic. `Order()` and `Order(int)` exist purely to fill in defaults and hand off — that's the whole payoff of chaining: one real implementation, several convenient entry points into it.
+
 ### Static constructor
 
 > **New term — Static constructor.** A static constructor initializes a **type itself**, not an instance of it. It runs **at most once per type**, automatically, right before the type is used for the first time — either before the first instance is created, or before any static member is accessed. You never call it yourself, and it can't take parameters or an access modifier.
@@ -401,9 +448,42 @@ Employee emp = __temp;
 flowchart LR
     A["new Employee()"] --> B["parameterless ctor runs"]
     B --> C["Id = 1"]
-    C --> D["Name = \"Alex\""]
-    D --> E["Department = \"Engineering\""]
+    C --> D["Name = #quot;Alex#quot;"]
+    D --> E["Department = #quot;Engineering#quot;"]
     E --> F["fully-initialized object assigned to emp"]
+```
+
+**Harder case — nested object initializers.** Once a property is itself a reference type, its object initializer can nest right inside the outer one:
+
+```csharp
+class Address
+{
+    public string City { get; set; }
+    public string Zip { get; set; }
+}
+class Employee
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public Address HomeAddress { get; set; }   // reference-type property
+}
+
+var emp = new Employee
+{
+    Id = 2,
+    Name = "Priya",
+    HomeAddress = new Address { City = "Austin", Zip = "78701" }   // nested initializer
+};
+```
+Nested initializers evaluate **inside-out**: the inner `Address` object is fully constructed and initialized *before* it's ever assigned to `HomeAddress`, exactly the way any other expression on the right-hand side of `=` would be evaluated first.
+
+```mermaid
+flowchart TB
+    A["new Employee { ... }"] --> B["new Address { City=..., Zip=... } runs to COMPLETION first"]
+    B --> C["Employee's own parameterless ctor runs"]
+    C --> D["Id = 2"]
+    D --> E["Name = #quot;Priya#quot;"]
+    E --> F["HomeAddress = (the already-finished Address object)"]
 ```
 
 **Object initializer vs constructor** — when to reach for each:
@@ -463,6 +543,46 @@ flowchart TB
     C -.->|"shares"| S
 ```
 If `TotalCreated` were an instance field instead, every ticket would start its own count at zero, and two tickets could both claim to be "#1" — the whole point of `static` here is that there's exactly one counter, not one per ticket.
+
+**Harder case — a shared static collection, not just a counter.** A single `int` counter is the simplest possible static field. A more realistic use is a static field holding an entire *collection*, acting as a shared registry every instance publishes itself into:
+
+```csharp
+class Product
+{
+    private static readonly Dictionary<string, Product> catalog = new();  // ONE dictionary, shared by every Product
+
+    public string Sku { get; }
+    public string Name { get; }
+
+    public Product(string sku, string name)
+    {
+        Sku = sku;
+        Name = name;
+        catalog[sku] = this;          // every new Product registers ITSELF into the shared registry
+    }
+
+    public static Product Find(string sku) =>
+        catalog.TryGetValue(sku, out var p) ? p : null;
+}
+
+new Product("SKU-1", "Keyboard");
+new Product("SKU-2", "Mouse");
+
+Product found = Product.Find("SKU-2");
+Console.WriteLine(found.Name);   // "Mouse" — looked up through the TYPE, without ever holding a direct reference
+```
+
+```mermaid
+flowchart TB
+    subgraph Type["Product (the type itself)"]
+        S["static catalog: Dictionary&lt;string, Product&gt;"]
+    end
+    K["new Product(#quot;SKU-1#quot;, ...)"] -->|"registers itself"| S
+    M["new Product(#quot;SKU-2#quot;, ...)"] -->|"registers itself"| S
+    F["Product.Find(#quot;SKU-2#quot;)"] --> S
+    S -->|"returns"| M
+```
+This is a step up from a plain counter because `catalog` is a single **mutable, shared object** — the exact aliasing situation from section 2, just held by the type instead of by a variable. Any code anywhere in the app that reaches `Product.Find(...)` sees every product ever constructed, which is powerful, but also means uncontrolled writes to a static collection from multiple places (or multiple threads) can corrupt shared state in ways an instance field never could — a preview of why static mutable state needs careful synchronization in multithreaded code.
 
 | | Instance member | Static member |
 |---|---|---|
@@ -555,6 +675,43 @@ classDiagram
 - **Inheritance is single-rooted in C#** — a class can only extend *one* base class (section 9). Composition has no such limit: a class can hold as many collaborator objects as it needs.
 - **Composition can be swapped at runtime.** `car.engine` could be reassigned to a different `Engine` implementation; you can never swap what a class inherits from after it's compiled.
 - Inheritance is still the right tool when there's a genuine, stable "is-a" relationship and you want **polymorphism** (section 14) — treating many derived types uniformly through a shared base type. Composition wins for "reuse this behavior" without wanting that substitutability.
+
+### The fragile base class problem, concretely
+
+**Real-world example:** a reporting library ships a `ReportGenerator` base class. A consumer of the library writes `PdfReportGenerator`, overriding one method to customize how PDFs render their header:
+
+```csharp
+// Version 1 of the library
+class ReportGenerator
+{
+    public virtual string FormatHeader() => "REPORT";
+    public string GenerateSummary() => $"{FormatHeader()}\n---\nSummary here";
+}
+class PdfReportGenerator : ReportGenerator
+{
+    public override string FormatHeader() => "REPORT (PDF)";   // written to affect GenerateSummary() ONLY
+}
+```
+Later, the library author adds a seemingly unrelated feature — a footer — and reuses the same `FormatHeader()` call to save writing a second method:
+
+```csharp
+// Version 2 of the library — a small, "safe-looking" addition
+class ReportGenerator
+{
+    public virtual string FormatHeader() => "REPORT";
+    public string GenerateSummary() => $"{FormatHeader()}\n---\nSummary here";
+    public string GenerateFooter() => $"{FormatHeader()}\n---\nEnd of report";   // NEW — also calls FormatHeader()
+}
+```
+`PdfReportGenerator`'s source code hasn't changed at all, but its behavior has: `new PdfReportGenerator().GenerateFooter()` now silently prints `"REPORT (PDF)"` in the footer too, a context its author never wrote or tested for. Nobody touched `PdfReportGenerator`, and nothing about `ReportGenerator`'s public contract looked dangerous to extend — that's exactly what makes this class of bug hard to catch in review.
+
+```mermaid
+flowchart TB
+    A["v1: GenerateSummary() calls FormatHeader()"] --> B["PdfReportGenerator overrides FormatHeader()\n(intended for GenerateSummary() only)"]
+    B --> C["v2 adds GenerateFooter(),\nwhich ALSO calls FormatHeader()"]
+    C --> D["PdfReportGenerator's override now fires somewhere\nits author never intended — silent behavior change,\nzero changes to PdfReportGenerator itself"]
+```
+Composition sidesteps this entirely: if `ReportGenerator` *held* a `HeaderFormatter` object instead of exposing an overridable method, adding `GenerateFooter()` could only affect behavior the caller explicitly wired up, never behavior implicitly inherited through an override.
 
 **Interview trap:** "favor composition over inheritance" doesn't mean "never use inheritance." It means: reach for inheritance only when a true is-a relationship exists and polymorphic substitution is actually needed, not merely to avoid retyping a method.
 
@@ -843,6 +1000,28 @@ This is one of the highest-value interview traps in C#, because the two look alm
 
 > **New term — Binding (compile-time vs run-time).** "Binding" means deciding *which actual method body runs* for a given call. **Compile-time (static) binding** decides this once, permanently, when the code is compiled — based on the variable's *declared* type. **Run-time (dynamic) binding** decides it fresh on every call, based on the object's *actual* type at that moment. This distinction is the entire reason `new` and `override` behave differently.
 
+### The minimal version, first
+
+Before the real-world trap below, here's the mechanism in isolation — as small as it gets:
+
+```csharp
+class Animal
+{
+    public void Speak() => Console.WriteLine("Animal sound");   // NOT virtual
+}
+class Dog : Animal
+{
+    public new void Speak() => Console.WriteLine("Bark");   // HIDES Animal.Speak — there's nothing to override
+}
+
+Dog d = new Dog();
+Animal a = d;   // a and d point at the exact same object
+
+d.Speak();   // "Bark"          — d's DECLARED type is Dog
+a.Speak();   // "Animal sound"  — a's DECLARED type is Animal — decided at COMPILE time, ignoring the real object
+```
+Same object, same method name, two different results — purely because of which *variable* the call was written through. That's the whole mechanism. The next example shows how easily this hides inside code that looks completely ordinary.
+
 **Real-world example:** a payroll system has an `Employee` class and a `Manager` subclass. `PrintBadge()` isn't `virtual` — nobody expected it to ever need a different version, so a `Manager` badge accidentally gets **hidden** with `new` instead of properly overridden. `CalculateBonus()` *is* `virtual`, and correctly `override`n:
 
 ```csharp
@@ -1063,6 +1242,47 @@ class ConsoleLogger : ILogger
 }
 ```
 This was added specifically to solve interface versioning: a library author can now add a new member to a published interface, give it a default body, and every existing implementer keeps compiling without changes. It blurs the classic "interfaces have no implementation" rule, but interfaces still can't hold fields/state — that line hasn't moved.
+
+### Harder case — chaining abstract classes
+
+The `PaymentMethod`/`CreditCard` example above is a single level: one abstract class, one concrete subclass filling in the gap. Abstract classes can chain, the same way ordinary classes do (section 9) — an abstract class can extend *another* abstract class, adding more unimplemented members before any concrete type ever appears:
+
+```csharp
+abstract class OnlinePaymentMethod : PaymentMethod          // abstract extending abstract
+{
+    public abstract string RedirectUrl();                    // adds ANOTHER unimplemented member
+    public override bool Authorize(decimal amount)            // fills in PaymentMethod's gap...
+        => amount < 5_000 && !string.IsNullOrEmpty(RedirectUrl());  // ...but leans on ITS OWN new gap to do it
+}
+
+class PayPal : OnlinePaymentMethod
+{
+    public override string RedirectUrl() => "https://paypal.com/checkout";   // the final, concrete piece
+}
+
+// var o = new OnlinePaymentMethod();  // still a compile error — still abstract, RedirectUrl has no body
+var pp = new PayPal { AccountId = "PP-1" };
+pp.Authorize(200);   // runs OnlinePaymentMethod's Authorize, which calls PayPal's own RedirectUrl()
+```
+
+```mermaid
+classDiagram
+    class PaymentMethod {
+        <<abstract>>
+        +Authorize(amount) bool*
+    }
+    class OnlinePaymentMethod {
+        <<abstract>>
+        +Authorize(amount) bool
+        +RedirectUrl() string*
+    }
+    class PayPal {
+        +RedirectUrl() string
+    }
+    PaymentMethod <|-- OnlinePaymentMethod
+    OnlinePaymentMethod <|-- PayPal
+```
+`OnlinePaymentMethod` fills in `PaymentMethod`'s gap (`Authorize`) while opening a new one of its own (`RedirectUrl`). Only `PayPal`, the first class in the chain with zero remaining unimplemented members, can actually be instantiated. This is exactly how real framework hierarchies grow: each layer contributes some shared logic while still deferring the parts it genuinely can't know about yet.
 
 **Rule of thumb for choosing between them:**
 - Need shared **state** (fields) or a constructor across a family of related types? → abstract class.
@@ -1495,6 +1715,36 @@ flowchart LR
 
 **Interview trap:** overloading `==` without also overloading `.Equals()`/`GetHashCode()` (section 19) is a classic bug source — the two can silently disagree, since nothing forces them to stay in sync. Overloading `==` **requires** overloading `!=` too — the compiler enforces this pairing (and similarly for `<`/`>` and `<=`/`>=`).
 
+### Harder case — the pairing rule, in code
+
+The `+`/`-` overloads above were independent operators — nothing forced them to come together. Comparison operators are different: the compiler physically won't let you define one half of a pair without the other.
+
+```csharp
+struct Money
+{
+    public decimal Amount;
+    public string Currency;
+
+    public static bool operator <(Money a, Money b)
+    {
+        if (a.Currency != b.Currency) throw new InvalidOperationException("Currency mismatch");
+        return a.Amount < b.Amount;
+    }
+    public static bool operator >(Money a, Money b) => b < a;   // required the moment < exists
+}
+```
+```csharp
+var price = new Money { Amount = 10, Currency = "USD" };
+var budget = new Money { Amount = 15, Currency = "USD" };
+
+Console.WriteLine(price < budget);   // true
+Console.WriteLine(price > budget);   // false
+
+// Deleting the `operator >` overload above while keeping `operator <`
+// is a compile error: CS0216 "operator requires a matching operator '>' to also be defined"
+```
+This is the same rule the interview trap above describes for `==`/`!=`, just enforced by the compiler instead of left to convention — `<`/`>` and `<=`/`>=` must always be defined together, or not at all.
+
 ### Custom conversion operators
 
 **Real-world example:** a weather app stores temperatures internally in Celsius, but a US-based user's UI displays Fahrenheit — a custom conversion operator lets that translation happen with a plain assignment instead of a helper method call everywhere:
@@ -1545,7 +1795,7 @@ Console.WriteLine(schedule[0]);    // calls the GET accessor — "Team standup"
 
 ```mermaid
 flowchart LR
-    A["schedule[0] = \"Team standup\""] --> B["compiles to: schedule.set_Item(0, \"Team standup\")"]
+    A["schedule[0] = #quot;Team standup#quot;"] --> B["compiles to: schedule.set_Item(0, #quot;Team standup#quot;)"]
     C["schedule[0]"] --> D["compiles to: schedule.get_Item(0)"]
 ```
 Under the hood, `this[...]` compiles to hidden `get_Item`/`set_Item` methods, the same way ordinary properties compile to `get_X`/`set_X` (section 4). This is why an indexer, like a property, isn't a "real" language primitive — it's syntax sugar over ordinary method calls.

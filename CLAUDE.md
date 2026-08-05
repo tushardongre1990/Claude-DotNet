@@ -37,6 +37,13 @@ Every concept explained in a topic README — and in chat, when walking through 
 
 See `02-OOP-Fundamentals/README.md` for the reference example of this treatment applied throughout.
 
+## Depth of coverage per concept
+The reader is going from **absolute beginner to advanced**, not just brushing up for an interview. Every concept/topic (e.g. constructor chaining, polymorphism, indexers) needs thorough treatment, not a single pass:
+
+- Multiple code examples per concept, ordered by **increasing difficulty** — start with the simplest possible illustration, then layer on complexity/edge cases/real-world variations in subsequent examples rather than jumping straight to the advanced case.
+- A diagram (Mermaid) for each meaningfully distinct stage of difficulty where a diagram would clarify flow/relationships, not just one diagram for the whole concept.
+- Still follow the readability rules above and ground each example in a real-world scenario per the section above — "increasing difficulty" means more examples/diagrams, not longer sentences.
+
 ## Recording new preferences and decisions
 This file is checked into git, so anything written here survives a fresh clone on another machine. Claude's private session memory does not — it's local to whichever machine the session ran on, and is lost when switching machines.
 
