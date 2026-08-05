@@ -21,6 +21,8 @@ Beginner-friendly must not mean bloated or textbook-dense. Apply these rules whe
 
 Goal: a senior dev can still skim it for depth, but a beginner isn't stalled parsing a 60-word sentence with three parenthetical asides.
 
+- **`> New term —` definitions should be short and structured, not one dense descriptive sentence.** Prefer a compact, almost imperative phrasing the reader can recite back — state the mechanism, then the payoff, then name any synonym — over a single sentence packing in clauses and cross-references. Compare `02-OOP-Fundamentals/README.md` section 4's Encapsulation definition (`Bundle state (fields) with the behavior that operates on it, and hide the internal state behind a controlled interface (properties/methods), so the object is always in a valid state. This is also called information hiding.`) against a denser one-sentence version — the structured one is the target. Cross-references (`[[Other-Topic]] section N`) still belong in the definition, just as a trailing sentence after the core definition, not woven into it.
+
 ## Handling follow-up / deep-dive questions
 When asked to explain something in more depth that's already covered in a topic `README.md`, fold the resulting explanation into that file at the relevant section — don't just leave it in chat:
 

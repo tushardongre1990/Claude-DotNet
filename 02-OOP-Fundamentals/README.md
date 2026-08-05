@@ -394,7 +394,7 @@ The rule underneath both diagrams: **method parameters of a reference type are p
 
 > **New term — Deep copy.** A deep copy goes further: for every reference-type field, it recursively creates a *new* copy of that nested object too, instead of copying the pointer. The result is a copy with fully independent state, all the way down.
 
-**Real-world example:** a checkout flow "duplicates" a saved shipping address onto a new order so the customer can tweak it (e.g. a different apartment number) without silently changing their saved address book entry:
+**Real-world example:** a checkout flow "duplicates" a saved shipping address onto a new order so the customer can tweak it (e.g. a different apartment number) without silently changing their saved address book entry. The classes and both copy strategies are shown together below, so it's clear exactly what state each example starts from:
 
 ```csharp
 class Address { public string City = "NYC"; }
@@ -403,10 +403,15 @@ class Person
     public string Name;      // value-ish here (string is technically a reference type,
                               // but IMMUTABLE — see 01-CSharp-Basics section 6 — so sharing it is harmless)
     public Address Home;     // reference type field — this is where shallow vs deep diverges
-}
-```
 
-```csharp
+    public Person DeepClone() => new Person
+    {
+        Name = Name,
+        Home = new Address { City = Home.City }   // a NEW Address, not the same one — used by the deep-copy example below
+    };
+}
+
+// --- Shallow copy ---
 Person original = new Person { Name = "Alice", Home = new Address() };
 
 Person shallow = (Person)original.MemberwiseClone(); // shallow copy
@@ -415,9 +420,19 @@ shallow.Home.City = "Boston";   // ⚠️ mutates the SAME Address original.Home
 
 Console.WriteLine(original.Name);      // "Alice" — untouched
 Console.WriteLine(original.Home.City); // "Boston" — changed! shared reference
+
+// --- Deep copy — a fresh Person, independent of "original" above ---
+Person source = new Person { Name = "Alice", Home = new Address() };
+
+Person deep = source.DeepClone();
+deep.Home.City = "Chicago";
+
+Console.WriteLine(source.Home.City); // "NYC" — untouched, fully independent
 ```
 
-`MemberwiseClone()` — inherited from `System.Object`, `protected` so it's typically wrapped in a public `Clone()` method — is the built-in way to do a shallow copy. It allocates a new object and blits every field across.
+`MemberwiseClone()` — inherited from `System.Object`, `protected` so it's typically wrapped in a public `Clone()` method — is the built-in way to do a shallow copy. It allocates a new object and blits every field across. `shallow` and `original` end up as two separate `Person` objects, but `Home` is a reference-type field, so both objects' `Home` fields still point at the *same* `Address` object. Mutating `shallow.Home.City` is visible through `original.Home.City` too — that's the shallow-copy trap.
+
+`DeepClone()` fixes this by constructing a brand-new `Address` for the copy, instead of copying the pointer to the existing one. `source` and `deep` end up fully independent all the way down — mutating `deep.Home.City` has no effect on `source.Home.City` at all.
 
 ```mermaid
 flowchart TB
@@ -426,35 +441,16 @@ flowchart TB
         S1["shallow: Person\nName=Bob"] -->|"Home (SAME reference!)"| A1
     end
 ```
-Both `Person` objects have their own `Name`, but they share one `Address` object. Mutating `shallow.Home.City` is visible through `original.Home.City` too — that's the shallow-copy trap.
-
-A **deep copy** fixes this by cloning the nested object as well, not just copying the pointer to it:
-
-```csharp
-class Person
-{
-    public string Name;
-    public Address Home;
-
-    public Person DeepClone() => new Person
-    {
-        Name = Name,
-        Home = new Address { City = Home.City }   // a NEW Address, not the same one
-    };
-}
-
-Person deep = original.DeepClone();
-deep.Home.City = "Chicago";
-Console.WriteLine(original.Home.City); // still "Boston" — fully independent now
-```
+Both `Person` objects have their own `Name`, but they share one `Address` object — this diagram is the shallow-copy trap made visible.
 
 ```mermaid
 flowchart TB
     subgraph Deep["After deep copy"]
-        O2["original: Person"] -->|"Home"| A2["Address #1\nCity=Boston"]
-        D2["deep: Person"] -->|"Home"| A3["Address #2\nCity=Chicago (own copy)"]
+        O2["source: Person\nName=Alice"] -->|"Home"| A2["Address #1\nCity=NYC"]
+        D2["deep: Person\nName=Alice"] -->|"Home"| A3["Address #2\nCity=Chicago (own copy)"]
     end
 ```
+`source` and `deep` don't share a single `Address` node at all — each points at its own, exactly the fix the shallow-copy diagram above was missing.
 
 | | Shallow copy | Deep copy |
 |---|---|---|
@@ -469,7 +465,7 @@ flowchart TB
 
 ## 4. Encapsulation and Properties
 
-> **New term — Encapsulation.** Encapsulation means bundling data with the code that operates on it, and hiding the data's raw storage behind a controlled interface. [[01-CSharp-Basics]] section 8 introduced access modifiers as the mechanism; this section covers **properties**, C#'s idiomatic way to expose that controlled interface.
+> **New term — Encapsulation.** Bundle state (fields) with the behavior that operates on it, and hide the internal state behind a controlled interface (properties/methods), so the object is always in a valid state. This is also called **information hiding**. [[01-CSharp-Basics]] section 8 introduced access modifiers as the mechanism; this section covers **properties**, C#'s idiomatic way to expose that controlled interface.
 
 ### Why properties exist
 
@@ -650,7 +646,85 @@ flowchart TB
 | Works with `init`-only properties | Yes | Yes |
 | Works with `private set` properties | No — can't assign from outside the class | Yes — the constructor is inside the class |
 
-**Interview trap:** object initializers run *after* the constructor completes, not instead of it. If a class has validation logic in its constructor but not in its property setters, an object initializer can produce an object the constructor's own validation would have rejected — a real source of bugs when a class is refactored from constructor-only to initializer-friendly without adding setter validation.
+**Interview trap:** object initializers run *after* the constructor completes, not instead of it. If a class has validation logic in its constructor but not in its property setters, an object initializer can produce an object the constructor's own validation would have rejected.
+
+**Real-world example:** a scheduling app's `Appointment` class validates that a meeting's end time is after its start time — but only inside the constructor:
+
+```csharp
+class Appointment
+{
+    public DateTime Start { get; set; }
+    public DateTime End { get; set; }
+
+    public Appointment(DateTime start, DateTime end)
+    {
+        if (end <= start)
+            throw new ArgumentException("End must be after Start");
+        Start = start;
+        End = end;
+    }
+}
+```
+```csharp
+var ok = new Appointment(DateTime.Today.AddHours(9), DateTime.Today.AddHours(10));   // fine
+var bad = new Appointment(DateTime.Today.AddHours(10), DateTime.Today.AddHours(9));  // throws — correctly rejected
+```
+This is safe **as long as the constructor is the only way to build an `Appointment`.** The bug appears later, when the class gets refactored to also support object-initializer syntax — for example, so a UI form-binding library or a test-data builder can construct one property-by-property:
+
+```csharp
+class Appointment
+{
+    public DateTime Start { get; set; }
+    public DateTime End { get; set; }
+
+    public Appointment() { }   // added later, purely to enable object-initializer syntax
+
+    public Appointment(DateTime start, DateTime end)
+    {
+        if (end <= start)
+            throw new ArgumentException("End must be after Start");
+        Start = start;
+        End = end;
+    }
+}
+
+var stillBad = new Appointment
+{
+    Start = DateTime.Today.AddHours(10),
+    End = DateTime.Today.AddHours(9)   // End before Start — the OTHER constructor would have thrown for this!
+};
+// no exception at all — Start and End are plain auto-properties, and neither setter checks anything
+```
+Nobody touched the validation logic. Adding the parameterless constructor was enough, on its own, to reopen a hole the parameterized constructor's `if (end <= start) throw` used to close for every caller.
+
+```mermaid
+flowchart TB
+    A["new Appointment(start, end)"] --> B["Appointment(DateTime, DateTime) body runs"]
+    B --> C{"end <= start?"}
+    C -->|"yes"| D["throws ArgumentException — REJECTED"]
+    C -->|"no"| E["Start = start; End = end — valid object"]
+
+    F["new Appointment { Start = ..., End = ... }"] --> G["Appointment() — the EMPTY parameterless ctor runs"]
+    G --> H["THEN: Start = value — plain auto-property setter, no check"]
+    H --> I["THEN: End = value — plain auto-property setter, no check"]
+    I --> J["object exists with End before Start — INVALID, but no exception ever ran"]
+```
+Both paths construct the exact same class, but only one of them ever runs the validation, because the validation lives in a constructor *body* the object-initializer path skips straight past. The real fix is to move the check into `End`'s own setter, so it applies no matter which constructor was used to get there:
+
+```csharp
+public DateTime Start { get; set; }
+private DateTime end;
+public DateTime End
+{
+    get => end;
+    set
+    {
+        if (value <= Start) throw new ArgumentException("End must be after Start");
+        end = value;
+    }
+}
+```
+This has its own subtlety worth flagging: an object initializer sets properties in the order they're written, so `Start` must appear before `End` in `new Appointment { ... }` for this setter to see the correct `Start` value at the moment it validates.
 
 ---
 
