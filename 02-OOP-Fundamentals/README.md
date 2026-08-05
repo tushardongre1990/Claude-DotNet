@@ -1003,7 +1003,7 @@ classDiagram
     class Animal
     class Dog
     Animal <|-- Dog
-    note for Dog "Single inheritance:\none base, one derived"
+    note for Dog "Single inheritance:<br/>one base, one derived"
 ```
 ```mermaid
 classDiagram
@@ -1012,7 +1012,7 @@ classDiagram
     class Dog
     Animal <|-- Mammal
     Mammal <|-- Dog
-    note for Dog "Multilevel inheritance:\na chain, A -> B -> C"
+    note for Dog "Multilevel inheritance:<br/>a chain, A -> B -> C"
 ```
 ```mermaid
 classDiagram
@@ -1023,7 +1023,7 @@ classDiagram
     Animal <|-- Dog
     Animal <|-- Cat
     Animal <|-- Bird
-    note for Animal "Hierarchical inheritance:\none base, MANY direct derived classes"
+    note for Animal "Hierarchical inheritance:<br/>one base, MANY direct derived classes"
 ```
 
 | Type | Shape | C# support |
@@ -1048,7 +1048,50 @@ classDiagram
     A <|-- C
     B <|-- D
     C <|-- D
-    note for D "The diamond problem —\nC# simply disallows this shape for classes"
+    note for D "The diamond problem —<br/>C# simply disallows this shape for classes"
+```
+
+**Real-world example:** picture a payroll system where `Manager` and `Contractor` both extend a base `Employee`, and each overrides how pay is calculated differently. Now imagine a `TechLead` who is genuinely both — a manager *and* an outside contractor at the same time:
+
+```csharp
+class Employee
+{
+    public virtual decimal GetPayRate() => 50m;
+}
+class Manager : Employee
+{
+    public override decimal GetPayRate() => 80m;    // managers earn a flat higher rate
+}
+class Contractor : Employee
+{
+    public override decimal GetPayRate() => 120m;   // contractors bill at a premium hourly rate
+}
+
+// class TechLead : Manager, Contractor { }   // ← if C# allowed this...
+// TechLead lead = new TechLead();
+// lead.GetPayRate();                          // ...80? 120? Neither answer is more "correct" than the other.
+```
+There's no principled way to decide which `GetPayRate()` a `TechLead` should inherit. Both `Manager` and `Contractor` are equally valid, equally direct parents, each with their own complete, conflicting override — the same underlying ambiguity as the abstract `A`/`B`/`C`/`D` diagram above, just with a concrete reason someone would actually want to write it this way.
+
+```mermaid
+classDiagram
+    class Employee { +GetPayRate() decimal }
+    class Manager { +GetPayRate() decimal }
+    class Contractor { +GetPayRate() decimal }
+    class TechLead
+    Employee <|-- Manager : GetPayRate() returns 80
+    Employee <|-- Contractor : GetPayRate() returns 120
+    Manager <|-- TechLead : ???
+    Contractor <|-- TechLead : ???
+    note for TechLead "lead.GetPayRate() — 80 or 120?<br/>No rule picks a winner"
+```
+
+This is exactly why C# refuses the shape at compile time rather than picking an arbitrary tie-breaking rule (some languages, like C++, allow it and force *you* to resolve the ambiguity by hand with "virtual inheritance" — extra syntax most C# developers would never want to think about). Trying to write it in C# fails immediately, before any ambiguity ever has a chance to matter at runtime:
+
+```csharp
+class TechLead : Manager, Contractor { }
+// Compiler error CS1721: 'TechLead': cannot have multiple base classes:
+// 'Manager' and 'Contractor'
 ```
 
 **Multiple inheritance via interfaces** is how C# gets the "combine behavior from several sources" benefit without the diamond ambiguity — because (outside of C# 8's default interface methods) interfaces only declare a *contract*, not implementation, so there's nothing to conflict:
