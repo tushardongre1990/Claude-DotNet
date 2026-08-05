@@ -941,6 +941,53 @@ flowchart TB
 ```
 Composition sidesteps this entirely: if `ReportGenerator` *held* a `HeaderFormatter` object instead of exposing an overridable method, adding `GenerateFooter()` could only affect behavior the caller explicitly wired up, never behavior implicitly inherited through an override.
 
+```csharp
+interface IHeaderFormatter { string Format(); }
+class DefaultHeaderFormatter : IHeaderFormatter { public string Format() => "REPORT"; }
+class PdfHeaderFormatter : IHeaderFormatter { public string Format() => "REPORT (PDF)"; }
+
+// v1 — ReportGenerator HOLDS a formatter, instead of exposing a method to override
+class ReportGenerator
+{
+    private readonly IHeaderFormatter headerFormatter;
+    public ReportGenerator(IHeaderFormatter headerFormatter) => this.headerFormatter = headerFormatter;
+
+    public string GenerateSummary() => $"{headerFormatter.Format()}\n---\nSummary here";
+}
+
+var pdfReport = new ReportGenerator(new PdfHeaderFormatter());
+pdfReport.GenerateSummary();   // "REPORT (PDF)\n---\nSummary here"
+```
+Now replay the exact same "library author adds a footer" change from the inheritance example — but this time against the composition version:
+
+```csharp
+// v2 — the "seemingly unrelated feature" gets added again
+class ReportGenerator
+{
+    private readonly IHeaderFormatter headerFormatter;
+    public ReportGenerator(IHeaderFormatter headerFormatter) => this.headerFormatter = headerFormatter;
+
+    public string GenerateSummary() => $"{headerFormatter.Format()}\n---\nSummary here";
+    public string GenerateFooter() => "End of report";   // NEW — does NOT touch headerFormatter at all
+}
+
+pdfReport.GenerateFooter();   // "End of report" — PdfHeaderFormatter never ran, nothing leaked in
+```
+`GenerateFooter()` simply doesn't reference `headerFormatter`. Nothing about `PdfHeaderFormatter` fires here, because nothing in `ReportGenerator`'s own new code told it to. If the library author *did* want the footer to reuse the same header style, that's a visible, deliberate line — `headerFormatter.Format()` — written inside `GenerateFooter()` itself, reviewable in the very same diff that introduced it:
+
+```csharp
+public string GenerateFooter() => $"{headerFormatter.Format()}\n---\nEnd of report";   // an explicit CHOICE, not an accident
+```
+
+```mermaid
+flowchart TB
+    A["ReportGenerator holds an IHeaderFormatter field"] --> B["GenerateSummary() explicitly calls headerFormatter.Format()"]
+    C["v2 adds GenerateFooter()"] --> D{"does GenerateFooter()'s OWN code call headerFormatter.Format()?"}
+    D -->|"yes — author wrote that line on purpose"| E["PdfHeaderFormatter.Format() runs —\nvisible in the SAME diff, reviewable"]
+    D -->|"no — author didn't write that line"| F["PdfHeaderFormatter never runs here —\nfooter behaves independently, nothing implicit"]
+```
+Compare that to the inheritance version's diagram above: there, `PdfReportGenerator`'s override fired the moment `ReportGenerator` called `FormatHeader()` from anywhere, with zero say from `PdfReportGenerator`'s own code and zero new lines to review inside it. With composition, `ReportGenerator` can only reach `headerFormatter` through calls it writes itself — there's no mechanism for a base class change to silently reach into a caller-supplied collaborator's behavior the way virtual dispatch reaches into an override.
+
 **Interview trap:** "favor composition over inheritance" doesn't mean "never use inheritance." It means: reach for inheritance only when a true is-a relationship exists and polymorphic substitution is actually needed, not merely to avoid retyping a method.
 
 ---
